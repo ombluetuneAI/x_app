@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>X Profile Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <button id="backBtn" class="back-btn hidden">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M7.414 13l5.043 5.04-1.414 1.42L3.586 12l7.457-7.46 1.414 1.42L7.414 11H21v2H7.414z" fill="currentColor"></path>
+                </svg>
+            </button>
+            <div class="header-content">
+                <div class="header-title" id="headerTitle">Profile</div>
+                <div class="header-subtitle" id="headerSubtitle"></div>
+            </div>
+        </header>
+
+        <!-- Profile View -->
+        <div id="profileView" class="view">
+            <!-- Banner -->
+            <div class="banner-container">
+                <div id="banner" class="banner"></div>
+            </div>
+
+            <!-- Profile Info -->
+            <div class="profile-info">
+                <div class="avatar-container">
+                    <img id="avatar" class="avatar" src="" alt="Avatar">
+                </div>
+                
+                <div class="profile-actions">
+                    <button id="followBtn" class="follow-btn">Follow</button>
+                </div>
+
+                <div class="profile-name">
+                    <h1 id="userName"></h1>
+                    <span id="verifiedBadge" class="verified-badge hidden">
+                        <svg viewBox="0 0 22 22" width="20" height="20">
+                            <path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" fill="#1d9bf0"></path>
+                        </svg>
+                    </span>
+                </div>
+
+                <div class="profile-handle">
+                    <span id="screenName"></span>
+                </div>
+
+                <div class="profile-bio" id="bio"></div>
+
+                <div class="profile-meta" id="meta">
+                    <span class="meta-item location" id="location"></span>
+                    <span class="meta-item joined" id="joined"></span>
+                </div>
+
+                <div class="profile-stats">
+                    <a href="#" id="followingLink" class="stat-item">
+                        <span class="stat-value" id="followingCount">0</span>
+                        <span class="stat-label">Following</span>
+                    </a>
+                    <span class="stat-item">
+                        <span class="stat-value" id="followersCount">0</span>
+                        <span class="stat-label">Followers</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs" id="tabs">
+                <button class="tab" data-tab="posts">Posts</button>
+                <button class="tab" data-tab="replies">Replies</button>
+                <button class="tab" data-tab="highlights">Highlights</button>
+                <button class="tab active-tab" data-tab="media">Media</button>
+            </div>
+
+            <!-- Content Container -->
+            <div id="contentContainer">
+                <!-- Posts View -->
+                <div id="postsView" class="content-view hidden">
+                    <div id="tweetsList" class="tweets-list">
+                        <div class="loading">Loading posts...</div>
+                    </div>
+                    <button id="loadMorePosts" class="load-more-btn hidden">Load more</button>
+                </div>
+
+                <!-- Media Grid -->
+                <div id="mediaView" class="content-view">
+                    <div id="mediaGrid" class="media-grid">
+                        <div class="loading">Loading media...</div>
+                    </div>
+                    <button id="loadMoreMedia" class="load-more-btn hidden">Load more</button>
+                </div>
+
+                <!-- Replies View (placeholder) -->
+                <div id="repliesView" class="content-view hidden">
+                    <div class="loading">Replies feature coming soon...</div>
+                </div>
+
+                <!-- Highlights View (placeholder) -->
+                <div id="highlightsView" class="content-view hidden">
+                    <div class="loading">Highlights feature coming soon...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Following View -->
+        <div id="followingView" class="view hidden">
+            <div class="following-header">
+                <span id="followingTitle"></span>
+            </div>
+            <div id="followingList" class="following-list">
+                <div class="loading">Loading following...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
