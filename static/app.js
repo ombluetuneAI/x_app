@@ -12,6 +12,12 @@ let mediaCursor = '';
 let tweetsCursor = '';
 let allTweets = [];
 let allMedia = [];
+let isLoadingPosts = false;
+let isLoadingMedia = false;
+let hasMoreMedia = true;
+let hasMorePosts = true;
+let lastLoadedMediaCursor = '';
+let lastLoadedTweetsCursor = '';
 
 // DOM Elements
 const profileView = document.getElementById('profileView');
@@ -48,9 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
     });
     
-    // Load more buttons
-    document.getElementById('loadMorePosts').addEventListener('click', loadMoreTweets);
-    document.getElementById('loadMoreMedia').addEventListener('click', loadMoreMedia);
+    // Infinite scroll with Intersection Observer
+    setupInfiniteScroll();
 });
 
 /**
@@ -72,6 +77,17 @@ function switchTab(tabName) {
     // Show selected view
     const viewId = tabName + 'View';
     document.getElementById(viewId).classList.remove('hidden');
+    
+    // Update header subtitle based on tab
+    if (currentUser) {
+        if (tabName === 'posts') {
+            const postsCount = currentUser.stats.statuses_count || 0;
+            document.getElementById('headerSubtitle').textContent = `${postsCount.toLocaleString()} posts`;
+        } else if (tabName === 'media') {
+            const mediaCount = currentUser.stats.media_count || 0;
+            document.getElementById('headerSubtitle').textContent = `${mediaCount.toLocaleString()} Photos & videos`;
+        }
+    }
     
     // Load content if needed
     if (tabName === 'posts' && currentUser) {
@@ -138,10 +154,21 @@ async function loadUserProfile(screenName) {
  * Load user tweets (posts)
  */
 async function loadUserTweets(screenName, cursor = '') {
+    if (isLoadingPosts) return;
+    
+    // Check if we've already loaded this cursor
+    if (cursor && cursor === lastLoadedTweetsCursor) {
+        return;
+    }
+    
+    isLoadingPosts = true;
+    
     try {
         if (!cursor) {
             document.getElementById('tweetsList').innerHTML = '<div class="loading">Loading posts...</div>';
             allTweets = [];
+            hasMorePosts = true;
+            lastLoadedTweetsCursor = '';
         }
         
         let url = `${API_BASE}/api/user/${screenName}/tweets`;
@@ -153,20 +180,40 @@ async function loadUserTweets(screenName, cursor = '') {
         const result = await response.json();
         
         if (result.success) {
-            allTweets = allTweets.concat(result.data.tweets);
-            tweetsCursor = result.data.cursor || '';
-            renderTweetsList(allTweets, false);
-            updateLoadMoreButton('loadMorePosts', tweetsCursor);
+            const newTweets = result.data.tweets;
+            const nextCursor = result.data.cursor || '';
+            
+            // Mark this cursor as loaded
+            if (cursor) {
+                lastLoadedTweetsCursor = cursor;
+            }
+            
+            if (!cursor) {
+                // First load - render all
+                allTweets = newTweets;
+                renderTweetsList(newTweets, true);
+            } else {
+                // Append only new tweets
+                allTweets = allTweets.concat(newTweets);
+                renderTweetsList(newTweets, false);
+            }
+            
+            // Update cursor after successful load
+            tweetsCursor = nextCursor;
+            hasMorePosts = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|');
         } else {
             if (!cursor) {
                 document.getElementById('tweetsList').innerHTML = `<div class="error">${result.error}</div>`;
             }
+            hasMorePosts = false;
         }
     } catch (error) {
         console.error('Error loading tweets:', error);
         if (!cursor) {
             document.getElementById('tweetsList').innerHTML = '<div class="error">Failed to load posts</div>';
         }
+    } finally {
+        isLoadingPosts = false;
     }
 }
 
@@ -174,10 +221,21 @@ async function loadUserTweets(screenName, cursor = '') {
  * Load user media
  */
 async function loadUserMedia(screenName, cursor = '') {
+    if (isLoadingMedia) return;
+    
+    // Check if we've already loaded this cursor
+    if (cursor && cursor === lastLoadedMediaCursor) {
+        return;
+    }
+    
+    isLoadingMedia = true;
+    
     try {
         if (!cursor) {
             document.getElementById('mediaGrid').innerHTML = '<div class="loading">Loading media...</div>';
             allMedia = [];
+            hasMoreMedia = true;
+            lastLoadedMediaCursor = '';
         }
         
         let url = `${API_BASE}/api/user/${screenName}/media`;
@@ -189,64 +247,77 @@ async function loadUserMedia(screenName, cursor = '') {
         const result = await response.json();
         
         if (result.success) {
-            allMedia = allMedia.concat(result.data.media);
-            mediaCursor = result.data.cursor || '';
-            renderMediaGrid(allMedia, false);
-            updateLoadMoreButton('loadMoreMedia', mediaCursor);
-            updateMediaCounts();
+            const newMedia = result.data.media;
+            const nextCursor = result.data.cursor || '';
+            
+            // Mark this cursor as loaded
+            if (cursor) {
+                lastLoadedMediaCursor = cursor;
+            }
+            
+            if (!cursor) {
+                // First load - render all
+                allMedia = newMedia;
+                renderMediaGrid(newMedia, true);
+            } else {
+                // Append only new media
+                allMedia = allMedia.concat(newMedia);
+                renderMediaGrid(newMedia, false);
+            }
+            
+            // Update cursor after successful load
+            mediaCursor = nextCursor;
+            hasMoreMedia = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|');
         } else {
             if (!cursor) {
                 document.getElementById('mediaGrid').innerHTML = `<div class="error">${result.error}</div>`;
             }
+            hasMoreMedia = false;
         }
     } catch (error) {
         console.error('Error loading media:', error);
         if (!cursor) {
             document.getElementById('mediaGrid').innerHTML = '<div class="error">Failed to load media</div>';
         }
+    } finally {
+        isLoadingMedia = false;
     }
 }
 
 /**
- * Load more tweets
+ * Setup infinite scroll with scroll event listener
+ * Preload next page when user scrolls near bottom
  */
-function loadMoreTweets() {
-    if (currentUser && tweetsCursor) {
-        loadUserTweets(currentUser.screen_name, tweetsCursor);
-    }
-}
-
-/**
- * Load more media
- */
-function loadMoreMedia() {
-    if (currentUser && mediaCursor) {
-        loadUserMedia(currentUser.screen_name, mediaCursor);
-    }
-}
-
-/**
- * Update load more button visibility
- */
-function updateLoadMoreButton(buttonId, cursor) {
-    const btn = document.getElementById(buttonId);
-    if (cursor && cursor !== '' && !cursor.startsWith('0|')) {
-        btn.classList.remove('hidden');
-    } else {
-        btn.classList.add('hidden');
-    }
-}
-
-/**
- * Update media count display
- */
-function updateMediaCounts() {
-    // Use total count from user stats if available, otherwise use loaded media count
-    const totalCount = (currentUser && currentUser.stats && currentUser.stats.media_count) 
-        ? currentUser.stats.media_count 
-        : allMedia.length;
-    // Show full number with commas
-    document.getElementById('headerSubtitle').textContent = `${totalCount.toLocaleString()} Photos & videos`;
+function setupInfiniteScroll() {
+    const handleScroll = () => {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const docHeight = Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight,
+            document.body.offsetHeight,
+            document.documentElement.offsetHeight
+        );
+        
+        // Trigger when within 1000px of bottom
+        const threshold = 1000;
+        const distanceToBottom = docHeight - (scrollTop + windowHeight);
+        
+        const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
+        const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
+        
+        if (distanceToBottom < threshold && distanceToBottom > -100 && hasMore && !loading) {
+            if (currentTab === 'posts' && currentUser) {
+                console.log('Loading more posts, distance:', distanceToBottom);
+                loadUserTweets(currentUser.screen_name, tweetsCursor);
+            } else if (currentTab === 'media' && currentUser) {
+                console.log('Loading more media, distance:', distanceToBottom);
+                loadUserMedia(currentUser.screen_name, mediaCursor);
+            }
+        }
+    };
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
 }
 
 /**
@@ -330,13 +401,15 @@ function renderProfile(data) {
     
     // Media grid
     renderMediaGrid(allMedia, false);
-    updateLoadMoreButton('loadMoreMedia', mediaCursor);
     
     // Update header
     headerTitle.textContent = user.name;
     
     currentView = 'profile';
     backBtn.classList.add('hidden');
+    
+    // Check if there's more data
+    hasMoreMedia = mediaCursor && mediaCursor !== '' && !mediaCursor.startsWith('0|');
 }
 
 /**
