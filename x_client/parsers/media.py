@@ -5,7 +5,7 @@ This module provides parsers for media-related API responses.
 """
 from typing import Dict, Any, List, Tuple
 
-from ..models import Tweet, Media
+from ..models import Media
 from .base import TimelineParser
 
 
@@ -70,19 +70,19 @@ class MediaParser(TimelineParser):
         except (KeyError, TypeError):
             return [], ""
     
-    def parse_media_tweets(self, data: Dict[str, Any]) -> Tuple[List[Tweet], str]:
+    def parse_media_list(self, data: Dict[str, Any]) -> Tuple[List[Media], str]:
         """
-        Parse timeline response to extract tweets with media.
+        Parse timeline response to extract media objects.
         
         Args:
             data: API response data
             
         Returns:
-            Tuple of (list of Tweet objects with media, next cursor)
+            Tuple of (list of Media objects, next cursor)
         """
         item_contents, next_cursor = self.parse_media_items(data)
         
-        tweets = []
+        all_media = []
         for item_content in item_contents:
             tweet_results = item_content.get("tweet_results", {})
             if not tweet_results:
@@ -92,20 +92,33 @@ class MediaParser(TimelineParser):
             if not result:
                 continue
             
+            # Handle visibility wrapper
+            if "tweet" in result:
+                result = result["tweet"]
+            
             legacy = result.get("legacy", {})
             
-            # Check if tweet has media
+            # Get tweet info
+            tweet_id = str(result.get("rest_id", "") or legacy.get("id_str", ""))
+            tweet_text = legacy.get("full_text", "") or legacy.get("text", "")
+            
+            # Check if tweet has media - try extended_entities first, then entities
             media_list = legacy.get("extended_entities", {}).get("media", [])
+            if not media_list:
+                media_list = legacy.get("entities", {}).get("media", [])
             if not media_list:
                 continue
             
-            # Parse the tweet
-            tweet = Tweet.from_dict(tweet_results)
-            if tweet and tweet.media:
-                tweets.append(tweet)
+            # Parse media objects with tweet context
+            for media_data in media_list:
+                # Add tweet info to media data
+                media_data["tweet_id"] = tweet_id
+                media_data["tweet_text"] = tweet_text
+                media = Media.from_dict(media_data)
+                all_media.append(media)
         
-        return tweets, next_cursor
+        return all_media, next_cursor
     
     def parse(self, data: Dict[str, Any]) -> tuple:
-        """Override to return media tweets."""
-        return self.parse_media_tweets(data)
+        """Override to return media list."""
+        return self.parse_media_list(data)

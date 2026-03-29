@@ -111,7 +111,7 @@ def get_user(screen_name):
 
 @app.route('/api/user/<screen_name>/media')
 def get_user_media(screen_name):
-    """Get user's media tweets."""
+    """Get user's media."""
     try:
         client = get_client()
         user = client.user.get_user_by_screen_name(screen_name)
@@ -121,22 +121,34 @@ def get_user_media(screen_name):
         count = request.args.get('count', 50, type=int)
         cursor = request.args.get('cursor', '')
         
-        tweets, next_cursor = client.media.get_user_media(
+        media_list, next_cursor = client.media.get_user_media(
             user.id, 
             count=count, 
             max_pages=1, 
             cursor=cursor
         )
         
-        media_list = []
-        for tweet in tweets:
-            media_list.extend(format_media(tweet))
+        formatted_media = []
+        for m in media_list:
+            url = m.url
+            if m.type == "photo" and "?format=" in url:
+                url = url.replace("?format=", "?name=large&format=")
+            formatted_media.append({
+                "type": m.type,
+                "url": url,
+                "video_url": m.video_url,
+                "width": m.width,
+                "height": m.height,
+                "duration": m.duration,
+                "tweet_id": m.tweet_id,
+                "tweet_text": m.tweet_text,
+            })
         
         return jsonify({
             "success": True,
             "data": {
                 "user": format_user(user),
-                "media": media_list[:count],
+                "media": formatted_media[:count],
                 "cursor": next_cursor
             }
         })

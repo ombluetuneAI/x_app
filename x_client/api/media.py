@@ -16,7 +16,7 @@ class MediaAPI(BaseAPI):
     API methods for media-related operations.
     
     Methods:
-        get_user_media: Get media tweets from a user
+        get_user_media: Get all media from a user's media timeline
     """
     
     def __init__(self, http_client):
@@ -31,7 +31,7 @@ class MediaAPI(BaseAPI):
         cursor: str = ""
     ) -> tuple:
         """
-        Get media tweets from a user's media timeline.
+        Get all media from a user's media timeline.
         
         Args:
             user_id: User ID
@@ -40,15 +40,14 @@ class MediaAPI(BaseAPI):
             cursor: Pagination cursor for continuing from previous request
             
         Returns:
-            Tuple of (List of Tweet objects with media attachments, next cursor)
+            Tuple of (List of Media objects, next cursor)
             
         Example:
             >>> media, cursor = client.media.get_user_media("123456789")
-            >>> for tweet in media:
-            ...     for m in tweet.media:
-            ...         print(f"{m.type}: {m.url}")
+            >>> for m in media:
+            ...     print(f"{m.type}: {m.url}")
         """
-        all_tweets = []
+        all_media = []
         next_cursor = cursor
         page = 0
         
@@ -74,9 +73,9 @@ class MediaAPI(BaseAPI):
             )
             
             data = self._get(APIEndpoints.USER_MEDIA, params)
-            tweets, next_cursor = self._parser.parse_media_tweets(data)
+            media_list, next_cursor = self._parser.parse_media_list(data)
             
-            all_tweets.extend(tweets)
+            all_media.extend(media_list)
             page += 1
             
             if not next_cursor or next_cursor.startswith("0|"):
@@ -84,4 +83,4 @@ class MediaAPI(BaseAPI):
             
             cursor = next_cursor
         
-        return all_tweets, next_cursor
+        return all_media, next_cursor

@@ -18,12 +18,18 @@ class Media:
         video_url: Video URL for video/animated_gif types
         width: Media width
         height: Media height
+        duration: Video duration in seconds (0 for photos)
+        tweet_id: ID of the tweet containing this media
+        tweet_text: Text content of the tweet
     """
     type: str = ""
     url: str = ""
     video_url: str = ""
     width: int = 0
     height: int = 0
+    duration: float = 0.0
+    tweet_id: str = ""
+    tweet_text: str = ""
     
     @classmethod
     def from_dict(cls, data: dict) -> "Media":
@@ -33,8 +39,10 @@ class Media:
         video_url = ""
         
         # Get highest quality video URL for videos
+        duration = 0.0
         if media_type in ("video", "animated_gif"):
-            variants = data.get("video_info", {}).get("variants", [])
+            video_info = data.get("video_info", {})
+            variants = video_info.get("variants", [])
             max_bitrate = 0
             for v in variants:
                 if v.get("content_type") == "video/mp4":
@@ -53,6 +61,8 @@ class Media:
                     video_url = f"{base_url}?tag={tag}"
                 else:
                     video_url = base_url
+            # Get video duration in seconds
+            duration = video_info.get("duration_millis", 0) / 1000.0
         
         sizes = data.get("sizes", {}).get("large", {})
         
@@ -62,6 +72,9 @@ class Media:
             video_url=video_url,
             width=sizes.get("w", 0),
             height=sizes.get("h", 0),
+            duration=duration,
+            tweet_id=data.get("tweet_id", ""),
+            tweet_text=data.get("tweet_text", ""),
         )
     
     def to_dict(self) -> dict:
@@ -72,6 +85,9 @@ class Media:
             "video_url": self.video_url,
             "width": self.width,
             "height": self.height,
+            "duration": self.duration,
+            "tweet_id": self.tweet_id,
+            "tweet_text": self.tweet_text,
         }
 
 
@@ -146,8 +162,51 @@ class Tweet:
             user_name = user_legacy.get("name", "")
             screen_name = user_legacy.get("screen_name", "")
         
-        # Extract media
+        # Extract media - try extended_entities first, then entities as fallback
         media_list = legacy.get("extended_entities", {}).get("media", [])
+        if not media_list:
+            # Check entities as fallback
+            media_list = legacy.get("entities", {}).get("media", [])
+        
+        # Also check if there are cards that contain media
+        if not media_list and "card" in result:
+            # Extract media from cards
+            card = result.get("card", {})
+            card_legacy = card.get("legacy", {})
+            binding_values = card_legacy.get("binding_values", {})
+            
+            # Handle binding_values - can be dict or list
+            if isinstance(binding_values, dict):
+                values_to_check = list(binding_values.values())
+            elif isinstance(binding_values, list):
+                values_to_check = binding_values
+            else:
+                values_to_check = []
+            
+            # Look for photo/video cards
+            for value in values_to_check:
+                if isinstance(value, dict) and value.get("type") == "IMAGE":
+                    image_url = value.get("image_value", {}).get("url", "")
+                    if image_url:
+                        media_list.append({
+                            "type": "photo",
+                            "media_url_https": image_url,
+                            "media_url": image_url
+                        })
+                elif isinstance(value, dict) and value.get("type") == "VIDEO":
+                    video_info = value.get("video_value", {})
+                    thumbnail_url = video_info.get("thumbnail_url", "")
+                    variants = video_info.get("variants", [])
+                    if thumbnail_url:
+                        media_item = {
+                            "type": "video",
+                            "media_url_https": thumbnail_url,
+                            "media_url": thumbnail_url
+                        }
+                        if variants:
+                            media_item["video_info"] = {"variants": variants}
+                        media_list.append(media_item)
+        
         media = [Media.from_dict(m) for m in media_list]
         
         # Extract stats
