@@ -102,7 +102,7 @@ class User:
             "description": self.description,
             "location": self.location,
             "url": self.url,
-            "profile_image_url": self.profile_image_url,
+            "profile_image_url": self.profile_image_url.replace("_normal", "_400x400") if self.profile_image_url else "",
             "profile_banner_url": self.profile_banner_url,
             "protected": self.protected,
             "verified": self.verified,

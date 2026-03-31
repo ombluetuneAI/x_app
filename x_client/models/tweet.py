@@ -255,5 +255,5 @@ class Tweet:
             "in_reply_to_user_id": self.in_reply_to_user_id,
             "is_quote_status": self.is_quote_status,
             "quoted_tweet_id": self.quoted_tweet_id,
-            "retweeted_tweet_id": self.retweet_tweet_id,
+            "retweeted_tweet_id": self.retweeted_tweet_id,
         }

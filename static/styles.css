@@ -375,6 +375,20 @@ html, body {
     margin-left: 2px;
 }
 
+/* Video duration badge */
+.video-duration {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
 /* Tweets List */
 .tweets-list {
     border-top: 1px solid var(--border-color);

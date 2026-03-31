@@ -16,8 +16,8 @@ let isLoadingPosts = false;
 let isLoadingMedia = false;
 let hasMoreMedia = true;
 let hasMorePosts = true;
-let lastLoadedMediaCursor = '';
-let lastLoadedTweetsCursor = '';
+let loadedMediaIds = new Set();
+let loadedTweetIds = new Set();
 
 // DOM Elements
 const profileView = document.getElementById('profileView');
@@ -130,6 +130,16 @@ function formatDate(dateStr) {
 }
 
 /**
+ * Format duration (seconds to mm:ss)
+ */
+function formatDuration(seconds) {
+    if (!seconds || seconds <= 0) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
  * Load user profile
  */
 async function loadUserProfile(screenName) {
@@ -156,19 +166,14 @@ async function loadUserProfile(screenName) {
 async function loadUserTweets(screenName, cursor = '') {
     if (isLoadingPosts) return;
     
-    // Check if we've already loaded this cursor
-    if (cursor && cursor === lastLoadedTweetsCursor) {
-        return;
-    }
-    
     isLoadingPosts = true;
     
     try {
         if (!cursor) {
             document.getElementById('tweetsList').innerHTML = '<div class="loading">Loading posts...</div>';
             allTweets = [];
+            loadedTweetIds = new Set();
             hasMorePosts = true;
-            lastLoadedTweetsCursor = '';
         }
         
         let url = `${API_BASE}/api/user/${screenName}/tweets`;
@@ -180,19 +185,18 @@ async function loadUserTweets(screenName, cursor = '') {
         const result = await response.json();
         
         if (result.success) {
-            const newTweets = result.data.tweets;
+            const tweets = result.data.tweets;
             const nextCursor = result.data.cursor || '';
             
-            // Mark this cursor as loaded
-            if (cursor) {
-                lastLoadedTweetsCursor = cursor;
-            }
+            // Filter out already loaded tweets
+            const newTweets = tweets.filter(t => !loadedTweetIds.has(t.id));
+            newTweets.forEach(t => loadedTweetIds.add(t.id));
             
             if (!cursor) {
                 // First load - render all
                 allTweets = newTweets;
                 renderTweetsList(newTweets, true);
-            } else {
+            } else if (newTweets.length > 0) {
                 // Append only new tweets
                 allTweets = allTweets.concat(newTweets);
                 renderTweetsList(newTweets, false);
@@ -200,7 +204,7 @@ async function loadUserTweets(screenName, cursor = '') {
             
             // Update cursor after successful load
             tweetsCursor = nextCursor;
-            hasMorePosts = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|');
+            hasMorePosts = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|') && newTweets.length > 0;
         } else {
             if (!cursor) {
                 document.getElementById('tweetsList').innerHTML = `<div class="error">${result.error}</div>`;
@@ -223,19 +227,14 @@ async function loadUserTweets(screenName, cursor = '') {
 async function loadUserMedia(screenName, cursor = '') {
     if (isLoadingMedia) return;
     
-    // Check if we've already loaded this cursor
-    if (cursor && cursor === lastLoadedMediaCursor) {
-        return;
-    }
-    
     isLoadingMedia = true;
     
     try {
         if (!cursor) {
             document.getElementById('mediaGrid').innerHTML = '<div class="loading">Loading media...</div>';
             allMedia = [];
+            loadedMediaIds = new Set();
             hasMoreMedia = true;
-            lastLoadedMediaCursor = '';
         }
         
         let url = `${API_BASE}/api/user/${screenName}/media`;
@@ -247,19 +246,18 @@ async function loadUserMedia(screenName, cursor = '') {
         const result = await response.json();
         
         if (result.success) {
-            const newMedia = result.data.media;
+            const media = result.data.media;
             const nextCursor = result.data.cursor || '';
             
-            // Mark this cursor as loaded
-            if (cursor) {
-                lastLoadedMediaCursor = cursor;
-            }
+            // Filter out already loaded media
+            const newMedia = media.filter(m => !loadedMediaIds.has(m.tweet_id));
+            newMedia.forEach(m => loadedMediaIds.add(m.tweet_id));
             
             if (!cursor) {
                 // First load - render all
                 allMedia = newMedia;
                 renderMediaGrid(newMedia, true);
-            } else {
+            } else if (newMedia.length > 0) {
                 // Append only new media
                 allMedia = allMedia.concat(newMedia);
                 renderMediaGrid(newMedia, false);
@@ -267,7 +265,7 @@ async function loadUserMedia(screenName, cursor = '') {
             
             // Update cursor after successful load
             mediaCursor = nextCursor;
-            hasMoreMedia = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|');
+            hasMoreMedia = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|') && newMedia.length > 0;
         } else {
             if (!cursor) {
                 document.getElementById('mediaGrid').innerHTML = `<div class="error">${result.error}</div>`;
@@ -289,7 +287,16 @@ async function loadUserMedia(screenName, cursor = '') {
  * Preload next page when user scrolls near bottom
  */
 function setupInfiniteScroll() {
+    let lastTriggerTime = 0;
+    
     const handleScroll = () => {
+        const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
+        const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
+        const cursor = currentTab === 'media' ? mediaCursor : tweetsCursor;
+        
+        // Skip if no more data or already loading
+        if (!hasMore || loading) return;
+        
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
         const windowHeight = window.innerHeight;
         const docHeight = Math.max(
@@ -303,16 +310,18 @@ function setupInfiniteScroll() {
         const threshold = 1000;
         const distanceToBottom = docHeight - (scrollTop + windowHeight);
         
-        const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
-        const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
+        // Debounce: only trigger once per second
+        const now = Date.now();
+        if (now - lastTriggerTime < 1000) return;
         
-        if (distanceToBottom < threshold && distanceToBottom > -100 && hasMore && !loading) {
+        if (distanceToBottom < threshold && distanceToBottom > -100 && cursor) {
+            lastTriggerTime = now;
             if (currentTab === 'posts' && currentUser) {
-                console.log('Loading more posts, distance:', distanceToBottom);
-                loadUserTweets(currentUser.screen_name, tweetsCursor);
+                console.log('Trigger load more posts, cursor:', cursor);
+                loadUserTweets(currentUser.screen_name, cursor);
             } else if (currentTab === 'media' && currentUser) {
-                console.log('Loading more media, distance:', distanceToBottom);
-                loadUserMedia(currentUser.screen_name, mediaCursor);
+                console.log('Trigger load more media, cursor:', cursor);
+                loadUserMedia(currentUser.screen_name, cursor);
             }
         }
     };
@@ -423,12 +432,14 @@ function renderTweetMedia(media) {
     if (hasVideo) {
         const videoMedia = media.find(m => m.type === 'video' || m.type === 'animated_gif');
         const videoUrl = videoMedia.video_url || videoMedia.url;
+        const duration = videoMedia.duration ? formatDuration(videoMedia.duration) : '';
         return `
             <a href="${videoUrl}" target="_blank" rel="noopener noreferrer" class="tweet-media tweet-media-video">
                 <img src="${videoMedia.url}" alt="">
                 <div class="video-play-btn">
                     <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
                 </div>
+                ${duration ? `<span class="video-duration">${duration}</span>` : ''}
             </a>
         `;
     }
@@ -503,19 +514,19 @@ function renderTweetsList(tweets, replace = true) {
             <div class="tweet-stats">
                 <span class="tweet-stat">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.183-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.37 2.77 6.08 6.138 6.01l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z"></path></svg>
-                    ${formatNumber(tweet.stats.replies)}
+                    ${formatNumber(tweet.stats.reply_count)}
                 </span>
                 <span class="tweet-stat">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z"></path></svg>
-                    ${formatNumber(tweet.stats.retweets)}
+                    ${formatNumber(tweet.stats.retweet_count)}
                 </span>
                 <span class="tweet-stat">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.697 5.5c-1.222-.35-2.808-.499-3.897-.499-2.563 0-4.8.897-6.198 2.292C5.204 8.69 4.5 10.616 4.5 12.5c0 1.86.79 3.665 2.176 5.015.232.555.49 1.06.77 1.508.266.43.538.782.801 1.048.273.276.47.387.593.427.123-.04.32-.151.593-.427.263-.266.535-.618.801-1.048.28-.448.538-.953.77-1.508C12.21 16.165 13 14.36 13 12.5c0-1.884-.704-3.81-2.102-5.207C9.5 5.897 7.263 5 4.7 5c-1.089 0-2.675.149-3.897.5l-.453-.893C2.067 3.803 4.097 3.5 4.7 3.5c2.938 0 5.635 1.05 7.394 2.81C13.854 8.07 14.7 10.267 14.7 12.5c0 2.323-.846 4.43-2.606 6.19-.46.46-.97.87-1.523 1.228-.545.352-1.142.662-1.779.917-.623.249-1.274.446-1.943.583C6.182 21.558 5.5 21.5 5.5 21.5s-.682.058-1.349-.082c-.669-.137-1.32-.334-1.943-.583-.637-.255-1.234-.565-1.779-.917-.553-.358-1.063-.768-1.523-1.228C-1.854 16.93-2.7 14.823-2.7 12.5c0-2.233.846-4.43 2.606-6.19C1.665 4.55 4.362 3.5 7.3 3.5c.603 0 2.633.303 4.35 1.107l-.453.893z"></path></svg>
-                    ${formatNumber(tweet.stats.likes)}
+                    ${formatNumber(tweet.stats.favorite_count)}
                 </span>
                 <span class="tweet-stat">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.75 21V3h2v18h-2zM18 21V11.5h2V21h-2zM4 21l.004-7.5h2L6 21H4zm9.248 0v-9h2v9h-2z"></path></svg>
-                    ${formatNumber(tweet.stats.views)}
+                    ${formatNumber(tweet.stats.view_count)}
                 </span>
             </div>
         </div>
@@ -548,6 +559,7 @@ function renderMediaGrid(mediaList, replace = true) {
     const html = mediaList.map(media => {
         const isVideo = media.type === 'video' || media.type === 'animated_gif';
         const clickUrl = (isVideo && media.video_url) ? media.video_url : media.url;
+        const duration = isVideo && media.duration ? formatDuration(media.duration) : '';
         return `
             <a href="${clickUrl}" target="_blank" rel="noopener noreferrer" class="media-item ${isVideo ? 'video' : ''}">
                 <img src="${media.url}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'">
@@ -555,6 +567,7 @@ function renderMediaGrid(mediaList, replace = true) {
                     <div class="video-icon">
                         <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
                     </div>
+                    ${duration ? `<span class="video-duration">${duration}</span>` : ''}
                 ` : ''}
             </a>
         `;

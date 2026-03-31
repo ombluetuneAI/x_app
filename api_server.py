@@ -4,7 +4,6 @@ Flask API Server for X Client Web Interface.
 
 This server provides REST API endpoints for the web frontend.
 """
-import json
 from pathlib import Path
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -28,74 +27,6 @@ def get_client():
     return _client
 
 
-def format_user(user):
-    """Format user data for API response."""
-    if not user:
-        return None
-    return {
-        "id": user.id,
-        "name": user.name,
-        "screen_name": user.screen_name,
-        "description": user.description,
-        "location": user.location,
-        "profile_image_url": user.profile_image_url.replace("_normal", "_400x400") if user.profile_image_url else "",
-        "profile_banner_url": user.profile_banner_url,
-        "verified": user.verified,
-        "following": user.following,
-        "created_at": user.created_at,
-        "stats": {
-            "followers_count": user.stats.followers_count,
-            "friends_count": user.stats.friends_count,
-            "statuses_count": user.stats.statuses_count,
-            "media_count": user.stats.media_count,
-        }
-    }
-
-
-def format_media(tweet):
-    """Format media data for API response."""
-    if not tweet or not tweet.media:
-        return []
-    result = []
-    for m in tweet.media:
-        # Get the best quality image URL
-        url = m.url
-        if m.type == "photo" and "?format=" in url:
-            # Try to get larger version
-            url = url.replace("?format=", "?name=large&format=")
-        result.append({
-            "type": m.type,
-            "url": url,
-            "video_url": m.video_url,
-            "tweet_id": tweet.id,
-            "tweet_text": tweet.text[:100] if tweet.text else "",
-        })
-    return result
-
-
-def format_tweet(tweet):
-    """Format tweet data for API response."""
-    if not tweet:
-        return None
-    return {
-        "id": tweet.id,
-        "text": tweet.text,
-        "created_at": tweet.created_at,
-        "user_id": tweet.user_id,
-        "user_name": tweet.user_name,
-        "screen_name": tweet.screen_name,
-        "stats": {
-            "likes": tweet.stats.favorite_count,
-            "retweets": tweet.stats.retweet_count,
-            "replies": tweet.stats.reply_count,
-            "quotes": tweet.stats.quote_count,
-            "views": tweet.stats.view_count,
-        },
-        "media": format_media(tweet) if tweet.media else [],
-        "has_media": bool(tweet.media),
-    }
-
-
 @app.route('/api/user/<screen_name>')
 def get_user(screen_name):
     """Get user information by screen name."""
@@ -103,7 +34,7 @@ def get_user(screen_name):
         client = get_client()
         user = client.user.get_user_by_screen_name(screen_name)
         if user:
-            return jsonify({"success": True, "data": format_user(user)})
+            return jsonify({"success": True, "data": user.to_dict()})
         return jsonify({"success": False, "error": "User not found"}), 404
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -128,27 +59,13 @@ def get_user_media(screen_name):
             cursor=cursor
         )
         
-        formatted_media = []
-        for m in media_list:
-            url = m.url
-            if m.type == "photo" and "?format=" in url:
-                url = url.replace("?format=", "?name=large&format=")
-            formatted_media.append({
-                "type": m.type,
-                "url": url,
-                "video_url": m.video_url,
-                "width": m.width,
-                "height": m.height,
-                "duration": m.duration,
-                "tweet_id": m.tweet_id,
-                "tweet_text": m.tweet_text,
-            })
+        formatted_media = [m.to_dict() for m in media_list]
         
         return jsonify({
             "success": True,
             "data": {
-                "user": format_user(user),
-                "media": formatted_media[:count],
+                "user": user.to_dict(),
+                "media": formatted_media,
                 "cursor": next_cursor
             }
         })
@@ -168,13 +85,13 @@ def get_user_following(screen_name):
         count = request.args.get('count', 100, type=int)
         following = client.user.get_following(user.id, count=count, max_pages=1)
         
-        users = [format_user(u) for u in following]
+        users = [u.to_dict() for u in following]
         
         return jsonify({
             "success": True,
             "data": {
-                "user": format_user(user),
-                "following": users[:count]
+                "user": user.to_dict(),
+                "following": users
             }
         })
     except Exception as e:
@@ -200,13 +117,13 @@ def get_user_tweets(screen_name):
             cursor=cursor
         )
         
-        tweet_list = [format_tweet(t) for t in tweets]
+        tweet_list = [t.to_dict() for t in tweets]
         
         return jsonify({
             "success": True,
             "data": {
-                "user": format_user(user),
-                "tweets": tweet_list[:count],
+                "user": user.to_dict(),
+                "tweets": tweet_list,
                 "cursor": next_cursor
             }
         })
