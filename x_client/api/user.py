@@ -16,8 +16,10 @@ class UserAPI(BaseAPI):
     API methods for user-related operations.
     
     Methods:
-        get_user_by_screen_name: Get user by screen name
-        get_following: Get users that a user is following
+        get_user_by_screen_name: Get user by screen name (GraphQL)
+        get_following: Get users that a user is following (GraphQL)
+        follow_user: Follow a user (REST API v1.1)
+        unfollow_user: Unfollow a user (REST API v1.1)
     """
     
     def __init__(self, http_client):
@@ -108,3 +110,69 @@ class UserAPI(BaseAPI):
             cursor = next_cursor
         
         return all_users
+    
+    def follow_user(self, user_id: str) -> bool:
+        """
+        Follow a user.
+        
+        Args:
+            user_id: User ID to follow
+            
+        Returns:
+            True if successful
+            
+        Example:
+            >>> success = client.user.follow_user("123456789")
+        """
+        # REST API v1.1 requires form data with specific parameters
+        data = {
+            "include_profile_interstitial_type": 1,
+            "include_blocking": 1,
+            "include_blocked_by": 1,
+            "include_followed_by": 1,
+            "include_want_retweets": 1,
+            "include_mute_edge": 1,
+            "include_can_dm": 1,
+            "include_can_media_tag": 1,
+            "include_ext_is_blue_verified": 1,
+            "include_ext_verified_type": 1,
+            "include_ext_profile_image_shape": 1,
+            "skip_status": 1,
+            "user_id": str(user_id),
+        }
+        
+        self._post(APIEndpoints.CREATE_FRIENDSHIP, data=data)
+        return True
+    
+    def unfollow_user(self, user_id: str) -> bool:
+        """
+        Unfollow a user.
+        
+        Args:
+            user_id: User ID to unfollow
+            
+        Returns:
+            True if successful
+            
+        Example:
+            >>> success = client.user.unfollow_user("123456789")
+        """
+        # REST API v1.1 requires form data with specific parameters
+        data = {
+            "include_profile_interstitial_type": 1,
+            "include_blocking": 1,
+            "include_blocked_by": 1,
+            "include_followed_by": 1,
+            "include_want_retweets": 1,
+            "include_mute_edge": 1,
+            "include_can_dm": 1,
+            "include_can_media_tag": 1,
+            "include_ext_is_blue_verified": 1,
+            "include_ext_verified_type": 1,
+            "include_ext_profile_image_shape": 1,
+            "skip_status": 1,
+            "user_id": str(user_id),
+        }
+        
+        self._post(APIEndpoints.DESTROY_FRIENDSHIP, data=data)
+        return True

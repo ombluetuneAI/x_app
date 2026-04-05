@@ -92,6 +92,9 @@ class HTTPClient:
         "Accept-Language": "en-US,en;q=0.9",
         "Origin": "https://x.com",
         "Referer": "https://x.com/",
+        "X-Twitter-Active-User": "yes",
+        "X-Twitter-Auth-Type": "OAuth2Session",
+        "X-Twitter-Client-Language": "en",
     }
     
     def __init__(
@@ -206,7 +209,7 @@ class HTTPClient:
         Args:
             method: HTTP method (GET, POST, etc.)
             url: Request URL
-            **kwargs: Additional request arguments
+            **kwargs: Additional request arguments (headers, json, data, params, etc.)
             
         Returns:
             Response object
@@ -220,11 +223,27 @@ class HTTPClient:
         # Set timeout if not provided
         kwargs.setdefault("timeout", self.timeout)
         
+        # Merge custom headers with defaults
+        if "headers" in kwargs:
+            headers = {**self.DEFAULT_HEADERS, **kwargs["headers"]}
+            kwargs["headers"] = headers
+        else:
+            kwargs.setdefault("headers", self.DEFAULT_HEADERS)
+        
+        # If sending form data (not JSON), remove Content-Type to let requests auto-set it
+        if "data" in kwargs and kwargs["data"] is not None:
+            if "json" not in kwargs or kwargs["json"] is None:
+                # Remove Content-Type header so requests can auto-set it for form data
+                kwargs["headers"] = {k: v for k, v in kwargs["headers"].items() if k.lower() != 'content-type'}
+                # Also need to explicitly set it to None to override session's Content-Type
+                kwargs["headers"]["Content-Type"] = None
+        
         last_error = None
         
         for attempt in range(self.max_retries + 1):
             try:
                 self._last_request_time = time.time()
+                
                 resp = self.session.request(method, url, **kwargs)
                 
                 # Handle rate limiting
@@ -290,6 +309,8 @@ class HTTPClient:
         self,
         path: str,
         json_data: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, str]] = None,
         base_url: str = "https://x.com"
     ) -> Response:
         """
@@ -298,13 +319,17 @@ class HTTPClient:
         Args:
             path: API endpoint path
             json_data: JSON body
+            data: Form data (will be encoded as application/x-www-form-urlencoded)
+            params: Query parameters
             base_url: Base URL (default: https://x.com)
             
         Returns:
             Response object
         """
         url = f"{base_url}{path}"
-        return self._make_request("POST", url, json=json_data)
+        
+        # No need to set custom headers - _make_request will handle Content-Type for form data
+        return self._make_request("POST", url, json=json_data, data=data, params=params)
     
     def close(self) -> None:
         """Close the session."""

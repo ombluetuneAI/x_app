@@ -21,17 +21,23 @@ def json_dumps(obj: dict) -> str:
 
 class APIEndpoints:
     """
-    Twitter GraphQL API endpoint paths.
+    Twitter API endpoint paths (GraphQL + REST v1.1).
     
-    These are the endpoint paths used for various API operations.
+    Most endpoints use GraphQL API, but some operations like follow/unfollow
+    use the more stable REST API v1.1.
+    
     The full URL is constructed by prepending "https://x.com" to these paths.
     """
     
-    # User endpoints
+    # User endpoints (GraphQL)
     USER_BY_SCREEN_NAME = "/i/api/graphql/xmU6X_CKVnQ5lSrCbAmJsg/UserByScreenName"
     USER_TWEETS = "/i/api/graphql/FOlovQsiHGDls3c0Q_HaSQ/UserTweets"
     USER_MEDIA = "/i/api/graphql/MOLbHrtk8Ovu7DUNOLcXiA/UserMedia"
     FOLLOWING = "/i/api/graphql/7FEKOPNAvxWASt6v9gfCXw/Following"
+    
+    # User endpoints (REST API v1.1 - more stable)
+    CREATE_FRIENDSHIP = "/i/api/1.1/friendships/create.json"
+    DESTROY_FRIENDSHIP = "/i/api/1.1/friendships/destroy.json"
     
     # List endpoints
     LIST_BY_REST_ID = "/i/api/graphql/ZMQOSpxDo0cP5Cdt8MgEVA/ListByRestId"

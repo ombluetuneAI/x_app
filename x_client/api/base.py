@@ -66,16 +66,18 @@ class BaseAPI(ABC):
         response = self._http.get(path, params=params)
         return response.data
     
-    def _post(self, path: str, json_data: Optional[Dict[str, Any]] = None):
+    def _post(self, path: str, json_data: Optional[Dict[str, Any]] = None, data: Optional[Dict[str, Any]] = None, params: Optional[Dict[str, str]] = None):
         """
         Make a POST request to the API.
         
         Args:
             path: API endpoint path
             json_data: JSON body
+            data: Form data
+            params: Query parameters
             
         Returns:
             Response data dictionary
         """
-        response = self._http.post(path, json_data=json_data)
+        response = self._http.post(path, json_data=json_data, data=data, params=params)
         return response.data

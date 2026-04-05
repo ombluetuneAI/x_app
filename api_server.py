@@ -131,6 +131,28 @@ def get_user_tweets(screen_name):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/user/<user_id>/follow', methods=['POST'])
+def follow_user(user_id):
+    """Follow a user."""
+    try:
+        client = get_client()
+        client.user.follow_user(user_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/user/<user_id>/unfollow', methods=['POST'])
+def unfollow_user(user_id):
+    """Unfollow a user."""
+    try:
+        client = get_client()
+        client.user.unfollow_user(user_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/')
 def index():
     """Serve the main page."""
