@@ -4,6 +4,13 @@
 
 const API_BASE = '';
 
+const IMAGE_PROXY_PREFIX = 'https://pz.v88.qzz.io?url=';
+
+function proxyUrl(url) {
+    if (!url) return '';
+    return IMAGE_PROXY_PREFIX + encodeURIComponent(url);
+}
+
 /**
  * Show a toast notification
  * @param {string} message - The message to display
@@ -372,14 +379,14 @@ function renderProfile(data) {
     // Banner
     const banner = document.getElementById('banner');
     if (user.profile_banner_url) {
-        banner.style.backgroundImage = `url(${user.profile_banner_url})`;
+        banner.style.backgroundImage = `url(${proxyUrl(user.profile_banner_url)})`;
     } else {
         banner.style.backgroundImage = 'none';
         banner.style.backgroundColor = '#333';
     }
     
     // Avatar
-    document.getElementById('avatar').src = user.profile_image_url || '';
+    document.getElementById('avatar').src = proxyUrl(user.profile_image_url);
     
     // Name and verified
     document.getElementById('userName').textContent = user.name;
@@ -450,15 +457,14 @@ function renderProfile(data) {
 function renderTweetMedia(media) {
     if (!media || media.length === 0) return '';
     
-    // Check if it's a video
     const hasVideo = media.some(m => m.type === 'video' || m.type === 'animated_gif');
     if (hasVideo) {
         const videoMedia = media.find(m => m.type === 'video' || m.type === 'animated_gif');
         const videoUrl = videoMedia.video_url || videoMedia.url;
         const duration = videoMedia.duration ? formatDuration(videoMedia.duration) : '';
         return `
-            <a href="${videoUrl}" target="_blank" rel="noopener noreferrer" class="tweet-media tweet-media-video">
-                <img src="${videoMedia.url}" alt="">
+            <a href="${proxyUrl(videoUrl)}" target="_blank" rel="noopener noreferrer" class="tweet-media tweet-media-video">
+                <img src="${proxyUrl(videoMedia.url)}" alt="">
                 <div class="video-play-btn">
                     <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
                 </div>
@@ -467,42 +473,41 @@ function renderTweetMedia(media) {
         `;
     }
     
-    // Multiple images layout
     const count = media.length;
     if (count === 1) {
         return `
             <div class="tweet-media">
-                <a href="${media[0].url}" target="_blank" rel="noopener noreferrer">
-                    <img src="${media[0].url}" alt="">
+                <a href="${proxyUrl(media[0].url)}" target="_blank" rel="noopener noreferrer">
+                    <img src="${proxyUrl(media[0].url)}" alt="">
                 </a>
             </div>
         `;
     } else if (count === 2) {
         return `
             <div class="tweet-media tweet-media-2">
-                <a href="${media[0].url}" target="_blank" rel="noopener noreferrer"><img src="${media[0].url}" alt=""></a>
-                <a href="${media[1].url}" target="_blank" rel="noopener noreferrer"><img src="${media[1].url}" alt=""></a>
+                <a href="${proxyUrl(media[0].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[0].url)}" alt=""></a>
+                <a href="${proxyUrl(media[1].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[1].url)}" alt=""></a>
             </div>
         `;
     } else if (count === 3) {
         return `
             <div class="tweet-media tweet-media-3">
-                <a href="${media[0].url}" target="_blank" rel="noopener noreferrer"><img src="${media[0].url}" alt=""></a>
+                <a href="${proxyUrl(media[0].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[0].url)}" alt=""></a>
                 <div class="tweet-media-3-right">
-                    <a href="${media[1].url}" target="_blank" rel="noopener noreferrer"><img src="${media[1].url}" alt=""></a>
-                    <a href="${media[2].url}" target="_blank" rel="noopener noreferrer"><img src="${media[2].url}" alt=""></a>
+                    <a href="${proxyUrl(media[1].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[1].url)}" alt=""></a>
+                    <a href="${proxyUrl(media[2].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[2].url)}" alt=""></a>
                 </div>
             </div>
         `;
     } else {
         return `
             <div class="tweet-media tweet-media-4">
-                <a href="${media[0].url}" target="_blank" rel="noopener noreferrer"><img src="${media[0].url}" alt=""></a>
-                <a href="${media[1].url}" target="_blank" rel="noopener noreferrer"><img src="${media[1].url}" alt=""></a>
-                <a href="${media[2].url}" target="_blank" rel="noopener noreferrer"><img src="${media[2].url}" alt=""></a>
+                <a href="${proxyUrl(media[0].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[0].url)}" alt=""></a>
+                <a href="${proxyUrl(media[1].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[1].url)}" alt=""></a>
+                <a href="${proxyUrl(media[2].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[2].url)}" alt=""></a>
                 <div class="tweet-media-4th">
-                    <a href="${media[3].url}" target="_blank" rel="noopener noreferrer">
-                        <img src="${media[3].url}" alt="">
+                    <a href="${proxyUrl(media[3].url)}" target="_blank" rel="noopener noreferrer">
+                        <img src="${proxyUrl(media[3].url)}" alt="">
                         ${count > 4 ? `<span class="more-images">+${count - 4}</span>` : ''}
                     </a>
                 </div>
@@ -525,7 +530,7 @@ function renderTweetsList(tweets, replace = true) {
     const html = tweets.map(tweet => `
         <div class="tweet-item">
             <div class="tweet-header">
-                <img class="tweet-avatar" src="${currentUser.profile_image_url}" alt="">
+                <img class="tweet-avatar" src="${proxyUrl(currentUser.profile_image_url)}" alt="">
                 <div class="tweet-author">
                     <span class="tweet-author-name">${currentUser.name}</span>
                     <span class="tweet-author-handle">@${currentUser.screen_name}</span>
@@ -584,8 +589,8 @@ function renderMediaGrid(mediaList, replace = true) {
         const clickUrl = (isVideo && media.video_url) ? media.video_url : media.url;
         const duration = isVideo && media.duration ? formatDuration(media.duration) : '';
         return `
-            <a href="${clickUrl}" target="_blank" rel="noopener noreferrer" class="media-item ${isVideo ? 'video' : ''}">
-                <img src="${media.url}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'">
+            <a href="${proxyUrl(clickUrl)}" target="_blank" rel="noopener noreferrer" class="media-item ${isVideo ? 'video' : ''}">
+                <img src="${proxyUrl(media.url)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'">
                 ${isVideo ? `
                     <div class="video-icon">
                         <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
@@ -695,7 +700,7 @@ function renderFollowingList(users) {
     
     list.innerHTML = users.map(user => `
         <div class="following-item">
-            <img class="avatar" src="${user.profile_image_url}" alt="" onclick="navigateToProfile('${user.screen_name}')">
+            <img class="avatar" src="${proxyUrl(user.profile_image_url)}" alt="" onclick="navigateToProfile('${user.screen_name}')">
             <div class="info" onclick="navigateToProfile('${user.screen_name}')">
                 <div class="name">
                     <span class="name-text">${escapeHtml(user.name)}</span>
