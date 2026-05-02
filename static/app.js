@@ -366,6 +366,8 @@ function renderProfile(data) {
     // Reset pagination state
     mediaCursor = data.cursor || '';
     allMedia = data.media || [];
+    loadedMediaIds = new Set();
+    (allMedia || []).forEach(m => { if (m.tweet_id) loadedMediaIds.add(m.tweet_id); });
     
     // Update URL without reload (only if not already on a specific view)
     const currentParams = new URLSearchParams(window.location.search);
@@ -439,7 +441,7 @@ function renderProfile(data) {
     followBtn.onclick = () => toggleFollow(user.id, user.following);
     
     // Media grid
-    renderMediaGrid(allMedia, false);
+    renderMediaGrid(allMedia, true);
     
     // Update header
     headerTitle.textContent = user.name;
@@ -637,14 +639,24 @@ function navigateToProfile(screenName) {
     backBtn.classList.add('hidden');
     currentView = 'profile';
     
-    // Reset state
+    // Reset state - clear currentUser first so switchTab won't load stale data
+    currentUser = null;
     mediaCursor = '';
     tweetsCursor = '';
     allTweets = [];
     allMedia = [];
+    loadedMediaIds = new Set();
+    loadedTweetIds = new Set();
+    isLoadingMedia = false;
+    isLoadingPosts = false;
+    hasMoreMedia = true;
+    hasMorePosts = true;
     
-    // Reset tab to media
+    // Reset tab to media (won't load data since currentUser is null)
     switchTab('media');
+    
+    // Show loading state
+    showLoading();
     
     // Update URL
     const url = new URL(window.location);
