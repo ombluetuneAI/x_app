@@ -412,8 +412,8 @@ html, body {
 .tweet-item {
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color);
-    cursor: pointer;
     transition: background-color 0.2s;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .tweet-item:hover {
@@ -603,6 +603,21 @@ html, body {
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s;
+}
+
+.translate-btn:hover {
+    text-decoration: underline;
+    background: rgba(29, 155, 240, 0.1);
+}
+
+.translate-btn:active {
+    background: rgba(29, 155, 240, 0.2);
+}
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -610,13 +625,10 @@ html, body {
     transition: opacity 0.2s;
 }
 
-.translate-btn:hover {
-    text-decoration: underline;
-}
-
 .translate-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+    text-decoration: none;
 }
 
 .translate-btn svg.spin {
