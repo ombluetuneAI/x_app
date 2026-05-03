@@ -39,6 +39,7 @@ let currentUser = null;
 let currentView = 'profile';
 let currentTab = 'media';
 let mediaCursor = '';
+let followingCache = {};
 let tweetsCursor = '';
 let allTweets = [];
 let allMedia = [];
@@ -849,16 +850,32 @@ function navigateToProfile(screenName) {
  */
 async function showFollowing(screenName) {
     try {
-        document.getElementById('followingList').innerHTML = '<div class="loading">Loading following...</div>';
         followingView.classList.remove('hidden');
         profileView.classList.add('hidden');
         
         document.getElementById('followingTitle').textContent = `People @${screenName} follows`;
         
+        // Check cache first
+        if (followingCache[screenName]) {
+            renderFollowingList(followingCache[screenName].data);
+            currentUser = followingCache[screenName].user;
+            headerTitle.textContent = 'Following';
+            backBtn.classList.remove('hidden');
+            currentView = 'following';
+            return;
+        }
+        
+        document.getElementById('followingList').innerHTML = '<div class="loading">Loading following...</div>';
+        
         const response = await fetch(`${API_BASE}/api/user/${screenName}/following`);
         const result = await response.json();
         
         if (result.success) {
+            // Cache the data
+            followingCache[screenName] = {
+                data: result.data.following,
+                user: result.data.user
+            };
             renderFollowingList(result.data.following);
             // Store the user whose following we're viewing
             currentUser = result.data.user;
