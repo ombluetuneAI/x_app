@@ -8,9 +8,10 @@ const IMAGE_PROXY_PREFIX = 'https://pz.v88.qzz.io?url=';
 
 function proxyUrl(url, isVideo = false) {
     if (!url) return '';
-    // Video URLs don't need proxy, only images do
-    if (isVideo) return url;
-    return IMAGE_PROXY_PREFIX + encodeURIComponent(url);
+    // Images use external image proxy
+    if (!isVideo) return IMAGE_PROXY_PREFIX + encodeURIComponent(url);
+    // Videos open directly in new tab (no proxy needed)
+    return url;
 }
 
 /**
@@ -85,6 +86,39 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Infinite scroll with Intersection Observer
     setupInfiniteScroll();
+    
+    // Lightbox keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        const lightbox = document.getElementById('lightbox');
+        if (lightbox.classList.contains('hidden')) return;
+        
+        if (e.key === 'Escape') closeLightbox();
+        else if (e.key === 'ArrowLeft') lightboxNav(-1);
+        else if (e.key === 'ArrowRight') lightboxNav(1);
+    });
+    
+    // Lightbox touch/swipe support
+    let touchStartX = 0;
+    let touchStartY = 0;
+    
+    document.getElementById('lightbox').addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    
+    document.getElementById('lightbox').addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].screenX - touchStartX;
+        const dy = e.changedTouches[0].screenY - touchStartY;
+        
+        // Only trigger swipe if horizontal movement > vertical and significant enough
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+            if (dx > 0) lightboxNav(-1); // Swipe right = prev
+            else lightboxNav(1); // Swipe left = next
+        } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 80) {
+            // Swipe down to close
+            closeLightbox();
+        }
+    }, { passive: true });
 });
 
 /**
@@ -295,6 +329,13 @@ async function loadUserMedia(screenName, cursor = '') {
             // Update cursor after successful load
             mediaCursor = nextCursor;
             hasMoreMedia = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|') && newMedia.length > 0;
+            
+            // Update lightbox counter and nav if lightbox is open
+            const lightbox = document.getElementById('lightbox');
+            if (!lightbox.classList.contains('hidden')) {
+                document.getElementById('lightboxCounter').textContent = `${lightboxIndex + 1} / ${allMedia.length}`;
+                document.querySelector('.lightbox-next').style.visibility = lightboxIndex < allMedia.length - 1 ? 'visible' : 'hidden';
+            }
         } else {
             if (!cursor) {
                 document.getElementById('mediaGrid').innerHTML = `<div class="error">${result.error}</div>`;
@@ -595,12 +636,15 @@ function renderMediaGrid(mediaList, replace = true) {
         return;
     }
     
-    const html = mediaList.map(media => {
+    // Calculate index offset for appended items
+    const offset = replace ? 0 : allMedia.length - mediaList.length;
+    
+    const html = mediaList.map((media, index) => {
+        const globalIndex = offset + index;
         const isVideo = media.type === 'video' || media.type === 'animated_gif';
-        const clickUrl = (isVideo && media.video_url) ? media.video_url : media.url;
         const duration = isVideo && media.duration ? formatDuration(media.duration) : '';
         return `
-            <a href="${proxyUrl(clickUrl, isVideo)}" target="_blank" rel="noopener noreferrer" class="media-item ${isVideo ? 'video' : ''}">
+            <div class="media-item ${isVideo ? 'video' : ''}" onclick="openLightbox(${globalIndex})" data-index="${globalIndex}">
                 <img src="${proxyUrl(media.url)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'">
                 ${isVideo ? `
                     <div class="video-icon">
@@ -608,7 +652,7 @@ function renderMediaGrid(mediaList, replace = true) {
                     </div>
                     ${duration ? `<span class="video-duration">${duration}</span>` : ''}
                 ` : ''}
-            </a>
+            </div>
         `;
     }).join('');
     
@@ -623,6 +667,90 @@ function renderMediaGrid(mediaList, replace = true) {
             grid.insertAdjacentHTML('beforeend', html);
         }
     }
+}
+
+/**
+ * Media Lightbox
+ */
+let lightboxIndex = 0;
+
+function openLightbox(index) {
+    lightboxIndex = index;
+    renderLightboxItem();
+    document.getElementById('lightbox').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    
+    // Preload more media if near the end
+    if (allMedia.length - lightboxIndex <= 3 && hasMoreMedia && !isLoadingMedia && currentUser) {
+        loadUserMedia(currentUser.screen_name, mediaCursor);
+    }
+}
+
+function closeLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    const content = document.getElementById('lightboxContent');
+    // Stop iframe video by removing src
+    const iframe = content.querySelector('iframe');
+    if (iframe) iframe.src = '';
+    content.innerHTML = '';
+    lightbox.classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function lightboxNav(direction) {
+    const newIndex = lightboxIndex + direction;
+    
+    // If navigating beyond the end, try loading more
+    if (newIndex >= allMedia.length) {
+        if (hasMoreMedia && !isLoadingMedia && currentUser) {
+            loadUserMedia(currentUser.screen_name, mediaCursor).then(() => {
+                // After loading, navigate to the new item if available
+                if (newIndex < allMedia.length) {
+                    lightboxIndex = newIndex;
+                    renderLightboxItem();
+                }
+            });
+        }
+        return;
+    }
+    
+    if (newIndex < 0) return;
+    
+    // Stop current iframe video
+    const content = document.getElementById('lightboxContent');
+    const iframe = content.querySelector('iframe');
+    if (iframe) iframe.src = '';
+    
+    lightboxIndex = newIndex;
+    renderLightboxItem();
+    
+    // Preload next items if near the end
+    if (allMedia.length - lightboxIndex <= 3 && hasMoreMedia && !isLoadingMedia && currentUser) {
+        loadUserMedia(currentUser.screen_name, mediaCursor);
+    }
+}
+
+function renderLightboxItem() {
+    const media = allMedia[lightboxIndex];
+    if (!media) return;
+    
+    const content = document.getElementById('lightboxContent');
+    const isVideo = media.type === 'video' || media.type === 'animated_gif';
+    const duration = isVideo && media.duration ? formatDuration(media.duration) : '';
+    
+    if (isVideo) {
+        const videoUrl = media.video_url || media.url;
+        content.innerHTML = `<iframe src="${videoUrl}" allow="autoplay" allowfullscreen></iframe>`;
+    } else {
+        content.innerHTML = `<img src="${proxyUrl(media.url)}" alt="">`;
+    }
+    
+    // Update counter
+    document.getElementById('lightboxCounter').textContent = `${lightboxIndex + 1} / ${allMedia.length}`;
+    
+    // Update nav button visibility
+    document.querySelector('.lightbox-prev').style.visibility = lightboxIndex > 0 ? 'visible' : 'hidden';
+    document.querySelector('.lightbox-next').style.visibility = lightboxIndex < allMedia.length - 1 ? 'visible' : 'hidden';
 }
 
 /**
