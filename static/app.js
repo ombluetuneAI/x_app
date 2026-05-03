@@ -6,8 +6,10 @@ const API_BASE = '';
 
 const IMAGE_PROXY_PREFIX = 'https://pz.v88.qzz.io?url=';
 
-function proxyUrl(url) {
+function proxyUrl(url, isVideo = false) {
     if (!url) return '';
+    // Video URLs don't need proxy, only images do
+    if (isVideo) return url;
     return IMAGE_PROXY_PREFIX + encodeURIComponent(url);
 }
 
@@ -465,7 +467,7 @@ function renderTweetMedia(media) {
         const videoUrl = videoMedia.video_url || videoMedia.url;
         const duration = videoMedia.duration ? formatDuration(videoMedia.duration) : '';
         return `
-            <a href="${proxyUrl(videoUrl)}" target="_blank" rel="noopener noreferrer" class="tweet-media tweet-media-video">
+            <a href="${proxyUrl(videoUrl, true)}" target="_blank" rel="noopener noreferrer" class="tweet-media tweet-media-video">
                 <img src="${proxyUrl(videoMedia.url)}" alt="">
                 <div class="video-play-btn">
                     <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
@@ -598,7 +600,7 @@ function renderMediaGrid(mediaList, replace = true) {
         const clickUrl = (isVideo && media.video_url) ? media.video_url : media.url;
         const duration = isVideo && media.duration ? formatDuration(media.duration) : '';
         return `
-            <a href="${proxyUrl(clickUrl)}" target="_blank" rel="noopener noreferrer" class="media-item ${isVideo ? 'video' : ''}">
+            <a href="${proxyUrl(clickUrl, isVideo)}" target="_blank" rel="noopener noreferrer" class="media-item ${isVideo ? 'video' : ''}">
                 <img src="${proxyUrl(media.url)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'">
                 ${isVideo ? `
                     <div class="video-icon">
