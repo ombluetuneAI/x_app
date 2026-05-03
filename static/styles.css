@@ -576,6 +576,57 @@ html, body {
     white-space: nowrap;
 }
 
+/* Translate Button */
+.tweet-translate-area {
+    margin-bottom: 8px;
+}
+
+.translate-btn {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0;
+    transition: opacity 0.2s;
+}
+
+.translate-btn:hover {
+    text-decoration: underline;
+}
+
+.translate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.translate-btn svg.spin {
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.tweet-translation {
+    font-size: 15px;
+    line-height: 1.4;
+    margin-top: 6px;
+    padding: 8px 12px;
+    border-left: 3px solid var(--accent-color);
+    background-color: rgba(29, 155, 240, 0.05);
+    border-radius: 0 8px 8px 0;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    animation: fadeIn 0.3s ease;
+}
+
 .tweet-stats {
     display: flex;
     gap: 24px;
