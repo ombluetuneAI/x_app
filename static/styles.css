@@ -617,11 +617,12 @@ html, body {
 .translate-btn:active {
     background: rgba(29, 155, 240, 0.2);
 }
+
+.translate-btn {
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 0;
     transition: opacity 0.2s;
 }
 
@@ -670,6 +671,62 @@ html, body {
 .tweet-stat svg {
     width: 18px;
     height: 18px;
+}
+
+/* Retweet / Quote nested card */
+.tweet-retweet-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    padding-left: 4px;
+}
+
+.tweet-retweet-label svg {
+    width: 16px;
+    height: 16px;
+}
+
+.tweet-nested-card {
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.tweet-nested-card .tweet-header {
+    padding: 10px 12px 0 12px;
+    margin-bottom: 0;
+}
+
+.tweet-nested-card .tweet-text {
+    padding: 4px 12px 8px 12px;
+    margin-bottom: 0;
+}
+
+.tweet-nested-card .tweet-media {
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+.tweet-nested-card .tweet-media-video {
+    border-radius: 0;
+}
+
+.tweet-nested-card .tweet-translate-area {
+    padding: 0 12px 8px 12px;
+    margin-bottom: 0;
+}
+
+.tweet-retweet-comment {
+    font-size: 15px;
+    line-height: 1.4;
+    margin-bottom: 8px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 /* Following List */

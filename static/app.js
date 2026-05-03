@@ -594,45 +594,129 @@ function renderTweetsList(tweets, replace = true) {
         return;
     }
     
-    const html = tweets.map(tweet => `
-        <div class="tweet-item">
-            <div class="tweet-header">
-                <img class="tweet-avatar" src="${proxyUrl(currentUser.profile_image_url)}" alt="">
-                <div class="tweet-author">
-                    <span class="tweet-author-name">${currentUser.name}</span>
-                    <span class="tweet-author-handle">@${currentUser.screen_name}</span>
-                </div>
-                <span class="tweet-date">${formatDate(tweet.created_at)}</span>
-            </div>
-            <div class="tweet-text">${escapeHtml(tweet.text)}</div>
-            <div class="tweet-translate-area" id="translate-${tweet.id}">
-                <button class="translate-btn" onclick="translateTweet('${tweet.id}', this)">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg>
-                    翻译
-                </button>
-                <div class="tweet-translation hidden"></div>
-            </div>
-            ${renderTweetMedia(tweet.media)}
-            <div class="tweet-stats">
-                <span class="tweet-stat">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.183-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.37 2.77 6.08 6.138 6.01l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z"></path></svg>
-                    ${formatNumber(tweet.stats.reply_count)}
-                </span>
-                <span class="tweet-stat">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z"></path></svg>
-                    ${formatNumber(tweet.stats.retweet_count)}
-                </span>
-                <span class="tweet-stat">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.697 5.5c-1.222-.35-2.808-.499-3.897-.499-2.563 0-4.8.897-6.198 2.292C5.204 8.69 4.5 10.616 4.5 12.5c0 1.86.79 3.665 2.176 5.015.232.555.49 1.06.77 1.508.266.43.538.782.801 1.048.273.276.47.387.593.427.123-.04.32-.151.593-.427.263-.266.535-.618.801-1.048.28-.448.538-.953.77-1.508C12.21 16.165 13 14.36 13 12.5c0-1.884-.704-3.81-2.102-5.207C9.5 5.897 7.263 5 4.7 5c-1.089 0-2.675.149-3.897.5l-.453-.893C2.067 3.803 4.097 3.5 4.7 3.5c2.938 0 5.635 1.05 7.394 2.81C13.854 8.07 14.7 10.267 14.7 12.5c0 2.323-.846 4.43-2.606 6.19-.46.46-.97.87-1.523 1.228-.545.352-1.142.662-1.779.917-.623.249-1.274.446-1.943.583C6.182 21.558 5.5 21.5 5.5 21.5s-.682.058-1.349-.082c-.669-.137-1.32-.334-1.943-.583-.637-.255-1.234-.565-1.779-.917-.553-.358-1.063-.768-1.523-1.228C-1.854 16.93-2.7 14.823-2.7 12.5c0-2.233.846-4.43 2.606-6.19C1.665 4.55 4.362 3.5 7.3 3.5c.603 0 2.633.303 4.35 1.107l-.453.893z"></path></svg>
-                    ${formatNumber(tweet.stats.favorite_count)}
-                </span>
-                <span class="tweet-stat">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.75 21V3h2v18h-2zM18 21V11.5h2V21h-2zM4 21l.004-7.5h2L6 21H4zm9.248 0v-9h2v9h-2z"></path></svg>
-                    ${formatNumber(tweet.stats.view_count)}
-                </span>
-            </div>
+    const retweetIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z"></path></svg>';
+    
+    const translateBtnHtml = (tweetId) => `
+        <div class="tweet-translate-area" id="translate-${tweetId}">
+            <button class="translate-btn" onclick="translateTweet('${tweetId}', this)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg>
+                翻译
+            </button>
+            <div class="tweet-translation hidden"></div>
         </div>
-    `).join('');
+    `;
+    
+    const renderTweetHeader = (name, handle, avatar, date) => `
+        <div class="tweet-header">
+            <img class="tweet-avatar" src="${proxyUrl(avatar)}" alt="">
+            <div class="tweet-author">
+                <span class="tweet-author-name">${escapeHtml(name)}</span>
+                <span class="tweet-author-handle">@${handle}</span>
+            </div>
+            <span class="tweet-date">${formatDate(date)}</span>
+        </div>
+    `;
+    
+    const renderTweetStats = (stats) => `
+        <div class="tweet-stats">
+            <span class="tweet-stat">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M1.751 10c0-4.42 3.584-8 8.005-8h4.366c4.49 0 8.129 3.64 8.129 8.13 0 2.96-1.607 5.68-4.196 7.11l-8.054 4.46v-3.69h-.067c-4.49.1-8.183-3.51-8.183-8.01zm8.005-6c-3.317 0-6.005 2.69-6.005 6 0 3.37 2.77 6.08 6.138 6.01l.351-.01h1.761v2.3l5.087-2.81c1.951-1.08 3.163-3.13 3.163-5.36 0-3.39-2.744-6.13-6.129-6.13H9.756z"></path></svg>
+                ${formatNumber(stats.reply_count)}
+            </span>
+            <span class="tweet-stat">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z"></path></svg>
+                ${formatNumber(stats.retweet_count)}
+            </span>
+            <span class="tweet-stat">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.697 5.5c-1.222-.35-2.808-.499-3.897-.499-2.563 0-4.8.897-6.198 2.292C5.204 8.69 4.5 10.616 4.5 12.5c0 1.86.79 3.665 2.176 5.015.232.555.49 1.06.77 1.508.266.43.538.782.801 1.048.273.276.47.387.593.427.123-.04.32-.151.593-.427.263-.266.535-.618.801-1.048.28-.448.538-.953.77-1.508C12.21 16.165 13 14.36 13 12.5c0-1.884-.704-3.81-2.102-5.207C9.5 5.897 7.263 5 4.7 5c-1.089 0-2.675.149-3.897.5l-.453-.893C2.067 3.803 4.097 3.5 4.7 3.5c2.938 0 5.635 1.05 7.394 2.81C13.854 8.07 14.7 10.267 14.7 12.5c0 2.323-.846 4.43-2.606 6.19-.46.46-.97.87-1.523 1.228-.545.352-1.142.662-1.779.917-.623.249-1.274.446-1.943.583C6.182 21.558 5.5 21.5 5.5 21.5s-.682.058-1.349-.082c-.669-.137-1.32-.334-1.943-.583-.637-.255-1.234-.565-1.779-.917-.553-.358-1.063-.768-1.523-1.228C-1.854 16.93-2.7 14.823-2.7 12.5c0-2.233.846-4.43 2.606-6.19C1.665 4.55 4.362 3.5 7.3 3.5c.603 0 2.633.303 4.35 1.107l-.453.893z"></path></svg>
+                ${formatNumber(stats.favorite_count)}
+            </span>
+            <span class="tweet-stat">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.75 21V3h2v18h-2zM18 21V11.5h2V21h-2zM4 21l.004-7.5h2L6 21H4zm9.248 0v-9h2v9h-2z"></path></svg>
+                ${formatNumber(stats.view_count)}
+            </span>
+        </div>
+    `;
+    
+    const renderNestedCard = (nestedTweet) => {
+        const qName = nestedTweet.user_name || currentUser.name;
+        const qHandle = nestedTweet.screen_name || currentUser.screen_name;
+        const qAvatar = nestedTweet.profile_image_url || currentUser.profile_image_url;
+        return `
+            <div class="tweet-nested-card">
+                ${renderTweetHeader(qName, qHandle, qAvatar, nestedTweet.created_at)}
+                <div class="tweet-text">${escapeHtml(nestedTweet.text)}</div>
+                ${translateBtnHtml(nestedTweet.id)}
+                ${renderTweetMedia(nestedTweet.media)}
+            </div>
+        `;
+    };
+    
+    const html = tweets.map(tweet => {
+        const isRetweet = !!tweet.retweeted_tweet;
+        const isQuote = !!tweet.quoted_tweet;
+        
+        // Use tweet's own author info or currentUser as fallback
+        const authorName = tweet.user_name || currentUser.name;
+        const authorHandle = tweet.screen_name || currentUser.screen_name;
+        const authorAvatar = tweet.profile_image_url || currentUser.profile_image_url;
+        
+        // === Retweet ===
+        if (isRetweet) {
+            const displayTweet = tweet.retweeted_tweet;
+            const retweeterName = tweet.user_name;
+            // Extract comment text from retweet (non "RT @user:" prefix means user added comment)
+            let retweetComment = '';
+            if (tweet.text && !tweet.text.startsWith('RT @')) {
+                retweetComment = tweet.text;
+            }
+            
+            return `
+                <div class="tweet-item">
+                    <div class="tweet-retweet-label">
+                        ${retweetIcon}
+                        ${escapeHtml(retweeterName)} 转发了
+                    </div>
+                    ${retweetComment ? `<div class="tweet-retweet-comment">${escapeHtml(retweetComment)}</div>` : ''}
+                    ${renderNestedCard(displayTweet)}
+                    ${renderTweetStats(displayTweet.stats)}
+                </div>
+            `;
+        }
+        
+        // === Quote tweet ===
+        if (isQuote) {
+            const quotedTweet = tweet.quoted_tweet;
+            // Clean quote text: remove the quoted tweet URL from the end
+            let quoteText = tweet.text;
+            const quoteUrlPattern = /\s*https?:\/\/\S+$/;
+            if (quoteUrlPattern.test(quoteText)) {
+                quoteText = quoteText.replace(quoteUrlPattern, '');
+            }
+            
+            return `
+                <div class="tweet-item">
+                    ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
+                    ${quoteText ? `<div class="tweet-text">${escapeHtml(quoteText)}</div>` : ''}
+                    ${translateBtnHtml(tweet.id)}
+                    ${renderTweetMedia(tweet.media)}
+                    ${renderNestedCard(quotedTweet)}
+                    ${renderTweetStats(tweet.stats)}
+                </div>
+            `;
+        }
+        
+        // === Normal tweet ===
+        return `
+            <div class="tweet-item">
+                ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
+                <div class="tweet-text">${escapeHtml(tweet.text)}</div>
+                ${translateBtnHtml(tweet.id)}
+                ${renderTweetMedia(tweet.media)}
+                ${renderTweetStats(tweet.stats)}
+            </div>
+        `;
+    }).join('');
     
     if (replace) {
         list.innerHTML = html;

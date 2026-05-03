@@ -113,13 +113,16 @@ class Tweet:
         user_id: Author user ID
         user_name: Author display name
         screen_name: Author username
+        profile_image_url: Author profile image URL
         media: List of attached media
         stats: Tweet statistics
         in_reply_to_status_id: ID of tweet being replied to
         in_reply_to_user_id: ID of user being replied to
         is_quote_status: Whether tweet is a quote
         quoted_tweet_id: ID of quoted tweet
+        quoted_tweet: Full quoted tweet object (if available)
         retweeted_tweet_id: ID of retweeted tweet
+        retweeted_tweet: Full retweeted tweet object (if available)
     """
     id: str
     text: str = ""
@@ -127,13 +130,16 @@ class Tweet:
     user_id: str = ""
     user_name: str = ""
     screen_name: str = ""
+    profile_image_url: str = ""
     media: List[Media] = field(default_factory=list)
     stats: TweetStats = field(default_factory=TweetStats)
     in_reply_to_status_id: Optional[str] = None
     in_reply_to_user_id: Optional[str] = None
     is_quote_status: bool = False
     quoted_tweet_id: Optional[str] = None
+    quoted_tweet: Optional["Tweet"] = None
     retweeted_tweet_id: Optional[str] = None
+    retweeted_tweet: Optional["Tweet"] = None
     
     @classmethod
     def from_dict(cls, data: dict) -> "Tweet":
@@ -161,6 +167,14 @@ class Tweet:
             user_legacy = user_result.get("legacy", {})
             user_name = user_legacy.get("name", "")
             screen_name = user_legacy.get("screen_name", "")
+        
+        # Extract profile image from user
+        profile_image_url = ""
+        user_legacy = user_result.get("legacy", {})
+        if user_legacy.get("profile_image_url_https"):
+            profile_image_url = user_legacy["profile_image_url_https"].replace("_normal", "_400x400")
+        elif user_core.get("profile_image_url_https"):
+            profile_image_url = user_core["profile_image_url_https"].replace("_normal", "_400x400")
         
         # Extract media - try extended_entities first, then entities as fallback
         media_list = legacy.get("extended_entities", {}).get("media", [])
@@ -218,20 +232,54 @@ class Tweet:
             view_count=int(result.get("views", {}).get("count", 0) or 0),
         )
         
+        # Parse retweeted_status (the original tweet being retweeted)
+        retweeted_tweet = None
+        retweeted_status = legacy.get("retweeted_status_result")
+        if not retweeted_status:
+            # Some API versions nest it differently
+            retweeted_status = result.get("retweeted_status_result")
+        if retweeted_status:
+            try:
+                retweeted_tweet = cls.from_dict(retweeted_status)
+            except Exception:
+                retweeted_tweet = None
+        
+        # Parse quoted_status (the tweet being quoted/referenced)
+        quoted_tweet = None
+        quoted_status = legacy.get("quoted_status_result")
+        if not quoted_status:
+            # Some API versions nest it differently
+            quoted_status = result.get("quoted_status_result")
+        if quoted_status:
+            try:
+                quoted_tweet = cls.from_dict(quoted_status)
+            except Exception:
+                quoted_tweet = None
+        
+        # For retweets, the text is usually "RT @user: ..." which is not useful
+        # Use the retweeted tweet's text instead if available
+        tweet_text = legacy.get("full_text", "") or legacy.get("text", "")
+        if retweeted_tweet and tweet_text.startswith("RT @"):
+            # Keep original text but we'll show retweeted tweet content in UI
+            pass
+        
         return cls(
             id=str(result.get("rest_id", "") or legacy.get("id_str", "")),
-            text=legacy.get("full_text", "") or legacy.get("text", ""),
+            text=tweet_text,
             created_at=legacy.get("created_at", ""),
             user_id=user_id,
             user_name=user_name,
             screen_name=screen_name,
+            profile_image_url=profile_image_url,
             media=media,
             stats=stats,
             in_reply_to_status_id=legacy.get("in_reply_to_status_id_str"),
             in_reply_to_user_id=legacy.get("in_reply_to_user_id_str"),
             is_quote_status=legacy.get("is_quote_status", False),
             quoted_tweet_id=legacy.get("quoted_status_id_str"),
+            quoted_tweet=quoted_tweet,
             retweeted_tweet_id=legacy.get("retweeted_status_id_str"),
+            retweeted_tweet=retweeted_tweet,
         )
     
     def to_dict(self) -> dict:
@@ -243,6 +291,7 @@ class Tweet:
             "user_id": self.user_id,
             "user_name": self.user_name,
             "screen_name": self.screen_name,
+            "profile_image_url": self.profile_image_url,
             "media": [m.to_dict() for m in self.media],
             "stats": {
                 "favorite_count": self.stats.favorite_count,
@@ -255,5 +304,7 @@ class Tweet:
             "in_reply_to_user_id": self.in_reply_to_user_id,
             "is_quote_status": self.is_quote_status,
             "quoted_tweet_id": self.quoted_tweet_id,
+            "quoted_tweet": self.quoted_tweet.to_dict() if self.quoted_tweet else None,
             "retweeted_tweet_id": self.retweeted_tweet_id,
+            "retweeted_tweet": self.retweeted_tweet.to_dict() if self.retweeted_tweet else None,
         }
