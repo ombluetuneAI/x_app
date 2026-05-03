@@ -46,7 +46,7 @@ class Media:
             max_bitrate = 0
             for v in variants:
                 if v.get("content_type") == "video/mp4":
-                    bitrate = v.get("bitrate", 0)
+                    bitrate = v.get("bitrate", 1)
                     if bitrate > max_bitrate:
                         max_bitrate = bitrate
                         video_url = v.get("url", "")

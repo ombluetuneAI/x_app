@@ -390,6 +390,20 @@ html, body {
     pointer-events: none;
 }
 
+.gif-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(29, 155, 240, 0.85);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+    letter-spacing: 0.5px;
+}
+
 /* Tweets List */
 .tweets-list {
     border-top: 1px solid var(--border-color);

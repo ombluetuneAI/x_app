@@ -10,7 +10,7 @@ function proxyUrl(url, isVideo = false) {
     if (!url) return '';
     // Images use external image proxy
     if (!isVideo) return IMAGE_PROXY_PREFIX + encodeURIComponent(url);
-    // Videos open directly in new tab (no proxy needed)
+    // Videos open directly (iframe handles no-referrer via meta tag)
     return url;
 }
 
@@ -663,6 +663,7 @@ function renderMediaGrid(mediaList, replace = true) {
     const html = mediaList.map((media, index) => {
         const globalIndex = offset + index;
         const isVideo = media.type === 'video' || media.type === 'animated_gif';
+        const isGif = media.type === 'animated_gif';
         const duration = isVideo && media.duration ? formatDuration(media.duration) : '';
         return `
             <div class="media-item ${isVideo ? 'video' : ''}" onclick="openLightbox(${globalIndex})" data-index="${globalIndex}">
@@ -671,6 +672,7 @@ function renderMediaGrid(mediaList, replace = true) {
                     <div class="video-icon">
                         <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
                     </div>
+                    ${isGif ? `<span class="gif-badge">GIF</span>` : ''}
                     ${duration ? `<span class="video-duration">${duration}</span>` : ''}
                 ` : ''}
             </div>
@@ -758,7 +760,7 @@ function renderLightboxItem(direction) {
     if (!media) return;
     
     const content = document.getElementById('lightboxContent');
-    const isVideo = media.type === 'video' || media.type === 'animated_gif';
+    const isVideo = media.type === 'video' || (media.type === 'animated_gif' && media.video_url);
     
     if (isVideo) {
         const videoUrl = media.video_url || media.url;
