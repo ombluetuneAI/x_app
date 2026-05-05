@@ -465,6 +465,19 @@ html, body {
     text-decoration: none;
 }
 
+.tweet-media-item {
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.tweet-media-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
 .tweet-media img {
     width: 100%;
     height: 100%;
@@ -478,8 +491,12 @@ html, body {
     text-decoration: none;
 }
 
-/* Single image */
-.tweet-media:not(.tweet-media-2):not(.tweet-media-3):not(.tweet-media-4) img {
+/* Single media item (not in a grid) */
+.tweet-media > .tweet-media-item:only-child {
+    border-radius: 16px;
+}
+
+.tweet-media > .tweet-media-item:only-child img {
     max-height: 300px;
 }
 
@@ -492,6 +509,7 @@ html, body {
     cursor: pointer;
 }
 
+.tweet-media-2 > .tweet-media-item,
 .tweet-media-2 img {
     height: 250px;
 }
@@ -505,11 +523,12 @@ html, body {
     cursor: pointer;
 }
 
-.tweet-media-3 > :first-child {
+.tweet-media-3 > :first-child,
+.tweet-media-3 > :first-child img {
     height: 250px;
 }
 
-.tweet-media-3 > :first-child img {
+.tweet-media-3 > :first-child > .tweet-media-item {
     height: 250px;
 }
 
@@ -519,6 +538,7 @@ html, body {
     gap: 2px;
 }
 
+.tweet-media-3-right > .tweet-media-item,
 .tweet-media-3-right img {
     height: calc(125px - 1px);
 }
@@ -534,12 +554,14 @@ html, body {
 
 .tweet-media-4 a,
 .tweet-media-4 > div[onclick],
+.tweet-media-4 > .tweet-media-item,
 .tweet-media-4th a,
 .tweet-media-4th[onclick] {
     display: block;
     height: 100%;
 }
 
+.tweet-media-4 > .tweet-media-item,
 .tweet-media-4 img {
     height: 125px;
 }
@@ -571,6 +593,22 @@ html, body {
 
 .tweet-media-video img {
     max-height: 300px;
+}
+
+/* Smaller play button in grid layouts */
+.tweet-media-2 .tweet-media-video .video-play-btn,
+.tweet-media-3 .tweet-media-video .video-play-btn,
+.tweet-media-4 .tweet-media-video .video-play-btn {
+    width: 36px;
+    height: 36px;
+}
+
+.tweet-media-2 .tweet-media-video .video-play-btn svg,
+.tweet-media-3 .tweet-media-video .video-play-btn svg,
+.tweet-media-4 .tweet-media-video .video-play-btn svg {
+    width: 20px;
+    height: 20px;
+    margin-left: 2px;
 }
 
 .video-play-btn {

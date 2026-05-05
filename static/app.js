@@ -665,6 +665,28 @@ function renderProfile(data) {
 }
 
 /**
+ * Render a single media item (image or video thumbnail)
+ */
+function renderSingleMedia(mediaItem, tweetId, index) {
+    const isVideo = mediaItem.type === 'video' || mediaItem.type === 'animated_gif';
+    const duration = isVideo && mediaItem.duration ? formatDuration(mediaItem.duration) : '';
+    const isGif = mediaItem.type === 'animated_gif';
+    const clickHandler = tweetId ? `onclick="openTweetLightbox('${tweetId}', ${index})"` : '';
+    return `
+        <div class="tweet-media-item ${isVideo ? 'tweet-media-video' : ''}" ${clickHandler}>
+            <img src="${proxyUrl(mediaItem.url)}" alt="">
+            ${isVideo ? `
+                <div class="video-play-btn">
+                    <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+                ${isGif ? `<span class="gif-badge">GIF</span>` : ''}
+                ${duration ? `<span class="video-duration">${duration}</span>` : ''}
+            ` : ''}
+        </div>
+    `;
+}
+
+/**
  * Render tweet media (images or video)
  */
 function renderTweetMedia(media, tweetId) {
@@ -675,55 +697,40 @@ function renderTweetMedia(media, tweetId) {
         tweetMediaMap[tweetId] = media;
     }
     
-    const hasVideo = media.some(m => m.type === 'video' || m.type === 'animated_gif');
-    if (hasVideo) {
-        const videoMedia = media.find(m => m.type === 'video' || m.type === 'animated_gif');
-        const duration = videoMedia.duration ? formatDuration(videoMedia.duration) : '';
-        const clickHandler = tweetId ? `onclick="openTweetLightbox('${tweetId}', 0)"` : '';
-        return `
-            <div class="tweet-media tweet-media-video" ${clickHandler}>
-                <img src="${proxyUrl(videoMedia.url)}" alt="">
-                <div class="video-play-btn">
-                    <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
-                </div>
-                ${duration ? `<span class="video-duration">${duration}</span>` : ''}
-            </div>
-        `;
-    }
-    
     const count = media.length;
     if (count === 1) {
-        return `
-            <div class="tweet-media" onclick="openTweetLightbox('${tweetId}', 0)">
-                <img src="${proxyUrl(media[0].url)}" alt="">
-            </div>
-        `;
+        return renderSingleMedia(media[0], tweetId, 0);
     } else if (count === 2) {
         return `
             <div class="tweet-media tweet-media-2">
-                <div onclick="openTweetLightbox('${tweetId}', 0)"><img src="${proxyUrl(media[0].url)}" alt=""></div>
-                <div onclick="openTweetLightbox('${tweetId}', 1)"><img src="${proxyUrl(media[1].url)}" alt=""></div>
+                ${renderSingleMedia(media[0], tweetId, 0)}
+                ${renderSingleMedia(media[1], tweetId, 1)}
             </div>
         `;
     } else if (count === 3) {
         return `
             <div class="tweet-media tweet-media-3">
-                <div onclick="openTweetLightbox('${tweetId}', 0)"><img src="${proxyUrl(media[0].url)}" alt=""></div>
+                ${renderSingleMedia(media[0], tweetId, 0)}
                 <div class="tweet-media-3-right">
-                    <div onclick="openTweetLightbox('${tweetId}', 1)"><img src="${proxyUrl(media[1].url)}" alt=""></div>
-                    <div onclick="openTweetLightbox('${tweetId}', 2)"><img src="${proxyUrl(media[2].url)}" alt=""></div>
+                    ${renderSingleMedia(media[1], tweetId, 1)}
+                    ${renderSingleMedia(media[2], tweetId, 2)}
                 </div>
             </div>
         `;
     } else {
         return `
             <div class="tweet-media tweet-media-4">
-                <div onclick="openTweetLightbox('${tweetId}', 0)"><img src="${proxyUrl(media[0].url)}" alt=""></div>
-                <div onclick="openTweetLightbox('${tweetId}', 1)"><img src="${proxyUrl(media[1].url)}" alt=""></div>
-                <div onclick="openTweetLightbox('${tweetId}', 2)"><img src="${proxyUrl(media[2].url)}" alt=""></div>
-                <div class="tweet-media-4th" onclick="openTweetLightbox('${tweetId}', 3)">
+                ${renderSingleMedia(media[0], tweetId, 0)}
+                ${renderSingleMedia(media[1], tweetId, 1)}
+                ${renderSingleMedia(media[2], tweetId, 2)}
+                <div class="tweet-media-4th" ${tweetId ? `onclick="openTweetLightbox('${tweetId}', 3)"` : ''}>
                     <img src="${proxyUrl(media[3].url)}" alt="">
                     ${count > 4 ? `<span class="more-images">+${count - 4}</span>` : ''}
+                    ${media[3].type === 'video' || media[3].type === 'animated_gif' ? `
+                        <div class="video-play-btn">
+                            <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
