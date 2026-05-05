@@ -472,7 +472,8 @@ html, body {
     cursor: pointer;
 }
 
-.tweet-media a {
+.tweet-media a,
+.tweet-media > div[onclick] {
     display: block;
     text-decoration: none;
 }
@@ -488,6 +489,7 @@ html, body {
     grid-template-columns: 1fr 1fr;
     gap: 2px;
     max-height: 250px;
+    cursor: pointer;
 }
 
 .tweet-media-2 img {
@@ -500,9 +502,14 @@ html, body {
     grid-template-columns: 2fr 1fr;
     gap: 2px;
     max-height: 250px;
+    cursor: pointer;
 }
 
-.tweet-media-3 > img:first-child {
+.tweet-media-3 > :first-child {
+    height: 250px;
+}
+
+.tweet-media-3 > :first-child img {
     height: 250px;
 }
 
@@ -522,10 +529,13 @@ html, body {
     grid-template-columns: 1fr 1fr;
     gap: 2px;
     max-height: 250px;
+    cursor: pointer;
 }
 
 .tweet-media-4 a,
-.tweet-media-4th a {
+.tweet-media-4 > div[onclick],
+.tweet-media-4th a,
+.tweet-media-4th[onclick] {
     display: block;
     height: 100%;
 }
@@ -556,6 +566,7 @@ html, body {
 /* Video in tweet */
 .tweet-media-video {
     position: relative;
+    cursor: pointer;
 }
 
 .tweet-media-video img {
@@ -727,6 +738,68 @@ html, body {
     margin-bottom: 8px;
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+/* Home Timeline */
+.home-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 57px;
+    background-color: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
+}
+
+.home-tab {
+    flex: 1;
+    padding: 16px 16px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+    position: relative;
+}
+
+.home-tab:hover {
+    background-color: rgba(231, 233, 234, 0.03);
+    color: var(--text-primary);
+}
+
+.active-home-tab {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.active-home-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 56px;
+    height: 4px;
+    background-color: var(--accent-color);
+    border-radius: 2px;
+}
+
+.home-feed .tweet-header {
+    cursor: pointer;
+}
+
+.home-feed .tweet-avatar,
+.home-feed .tweet-author {
+    cursor: pointer;
+}
+
+.home-feed .tweet-avatar:hover,
+.home-feed .tweet-author:hover {
+    opacity: 0.8;
 }
 
 /* Following List */
@@ -944,6 +1017,8 @@ html, body {
 .lightbox-close:hover {
     background: rgba(255, 255, 255, 0.3);
 }
+
+
 
 .lightbox-content {
     position: absolute;

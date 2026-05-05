@@ -27,6 +27,39 @@ def get_client():
     return _client
 
 
+@app.route('/api/home/timeline')
+def get_home_timeline():
+    """Get home timeline tweets (For You or Following)."""
+    try:
+        client = get_client()
+        count = request.args.get('count', 20, type=int)
+        cursor = request.args.get('cursor', '')
+        feed_type = request.args.get('type', 'foryou')  # 'foryou' or 'following'
+        latest = feed_type == 'following'
+        
+        tweets, next_cursor = client.tweet.get_home_timeline(
+            count=count,
+            latest=latest,
+            max_pages=1,
+            cursor=cursor
+        )
+        
+        tweet_list = [t.to_dict() for t in tweets]
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "tweets": tweet_list,
+                "cursor": next_cursor
+            }
+        })
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e), "traceback": tb}), 500
+
+
 @app.route('/api/user/<screen_name>')
 def get_user(screen_name):
     """Get user information by screen name."""

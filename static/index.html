@@ -17,13 +17,25 @@
                 </svg>
             </button>
             <div class="header-content">
-                <div class="header-title" id="headerTitle">Profile</div>
+                <div class="header-title" id="headerTitle">Home</div>
                 <div class="header-subtitle" id="headerSubtitle"></div>
             </div>
         </header>
 
+        <!-- Home View -->
+        <div id="homeView" class="view">
+            <div class="home-tabs" id="homeTabs">
+                <button class="home-tab active-home-tab" data-feed="foryou">推荐</button>
+                <button class="home-tab" data-feed="following">关注</button>
+            </div>
+            <div id="homeFeed" class="home-feed">
+                <div class="loading">Loading...</div>
+            </div>
+            <div id="loadMoreHome" class="scroll-sentinel"></div>
+        </div>
+
         <!-- Profile View -->
-        <div id="profileView" class="view">
+        <div id="profileView" class="view hidden">
             <!-- Banner -->
             <div class="banner-container">
                 <div id="banner" class="banner"></div>
@@ -130,6 +142,7 @@
             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M13.414 12l5.793-5.793c.39-.39.39-1.023 0-1.414s-1.023-.39-1.414 0L12 10.586 6.207 4.793c-.39-.39-1.023-.39-1.414 0s-.39 1.023 0 1.414L10.586 12l-5.793 5.793c-.39.39-.39 1.023 0 1.414.195.195.45.293.707.293s.512-.098.707-.293L12 13.414l5.793 5.793c.195.195.45.293.707.293s.512-.098.707-.293c.39-.39.39-1.023 0-1.414L13.414 12z"></path></svg>
         </button>
         <div class="lightbox-content" id="lightboxContent"></div>
+
         <div class="lightbox-counter" id="lightboxCounter"></div>
     </div>
 

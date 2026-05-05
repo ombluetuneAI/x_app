@@ -259,6 +259,20 @@ class Tweet:
         # For retweets, the text is usually "RT @user: ..." which is not useful
         # Use the retweeted tweet's text instead if available
         tweet_text = legacy.get("full_text", "") or legacy.get("text", "")
+        
+        # For long tweets (Note Tweets), full_text is truncated to ~280 chars.
+        # The full content is in note_tweet.note_tweet_results.result.text
+        note_tweet = result.get("note_tweet")
+        if not note_tweet:
+            note_tweet = legacy.get("note_tweet")
+        if note_tweet:
+            note_results = note_tweet.get("note_tweet_results", {})
+            note_result = note_results.get("result", {})
+            if isinstance(note_result, dict):
+                note_text = note_result.get("text", "")
+                if note_text:
+                    tweet_text = note_text
+        
         if retweeted_tweet and tweet_text.startswith("RT @"):
             # Keep original text but we'll show retweeted tweet content in UI
             pass

@@ -36,8 +36,14 @@ function showToast(message, type = 'info', duration = 3000) {
 
 // State
 let currentUser = null;
-let currentView = 'profile';
+let currentView = 'home';
 let currentTab = 'media';
+let homeFeedType = 'foryou'; // 'foryou' or 'following'
+let homeCursor = '';
+let homeTweets = [];
+let homeLoadedIds = new Set();
+let isLoadingHome = false;
+let hasMoreHome = true;
 let mediaCursor = '';
 let followingCache = {};
 let tweetsCursor = '';
@@ -50,7 +56,13 @@ let hasMorePosts = true;
 let loadedMediaIds = new Set();
 let loadedTweetIds = new Set();
 
+// Tweet media lightbox state
+let tweetLightboxMedia = [];  // Media array for current tweet lightbox
+let isTweetLightbox = false;   // Whether lightbox is showing tweet media (vs profile media grid)
+let tweetMediaMap = {};        // Store media arrays keyed by tweet ID
+
 // DOM Elements
+const homeView = document.getElementById('homeView');
 const profileView = document.getElementById('profileView');
 const followingView = document.getElementById('followingView');
 const backBtn = document.getElementById('backBtn');
@@ -60,14 +72,17 @@ const headerTitle = document.getElementById('headerTitle');
 document.addEventListener('DOMContentLoaded', () => {
     // Get screen name and view from URL or use default
     const params = new URLSearchParams(window.location.search);
-    const screenName = params.get('user') || 'elonmusk';
-    const view = params.get('view') || 'profile';
+    const screenName = params.get('user');
+    const view = params.get('view') || 'home';
     
     // Load appropriate view based on URL
-    if (view === 'following') {
+    if (view === 'following' && screenName) {
         showFollowing(screenName);
-    } else {
+    } else if (view === 'profile' && screenName) {
         loadUserProfile(screenName);
+    } else {
+        // Default: show home timeline
+        showHome();
     }
     
     // Event listeners
@@ -80,9 +95,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     backBtn.addEventListener('click', goBack);
     
-    // Tab click handlers
+    // Tab click handlers (profile tabs)
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+    });
+    
+    // Home feed tabs
+    document.querySelectorAll('.home-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchHomeFeed(tab.dataset.feed));
     });
     
     // Infinite scroll with Intersection Observer
@@ -96,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') closeLightbox();
         else if (e.key === 'ArrowUp') { e.preventDefault(); lightboxNav(-1); }
         else if (e.key === 'ArrowDown') { e.preventDefault(); lightboxNav(1); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); lightboxNav(-1); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); lightboxNav(1); }
     });
     
     // Lightbox touch/swipe support - vertical swipe like short video apps
@@ -122,7 +144,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const dy = e.changedTouches[0].screenY - touchStartY;
         const dt = Date.now() - touchStartTime;
         
-        // Vertical swipe for navigation (like short video apps)
         if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50) {
             e.preventDefault();
             if (dy < 0) lightboxNav(1);  // Swipe up = next
@@ -143,6 +164,109 @@ document.addEventListener('DOMContentLoaded', () => {
         wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 400);
     }, { passive: false });
 });
+
+/**
+ * Show home timeline view
+ */
+function showHome() {
+    homeView.classList.remove('hidden');
+    profileView.classList.add('hidden');
+    followingView.classList.add('hidden');
+    backBtn.classList.add('hidden');
+    headerTitle.textContent = 'Home';
+    currentView = 'home';
+    
+    // Update URL
+    const url = new URL(window.location);
+    url.searchParams.delete('user');
+    url.searchParams.delete('view');
+    window.history.replaceState({ view: 'home' }, '', url);
+    
+    // Load home feed if not already loaded
+    if (homeTweets.length === 0) {
+        loadHomeTimeline();
+    }
+}
+
+/**
+ * Switch home feed type (foryou/following)
+ */
+function switchHomeFeed(feedType) {
+    if (feedType === homeFeedType) return;
+    homeFeedType = feedType;
+    
+    // Update tab styles
+    document.querySelectorAll('.home-tab').forEach(tab => {
+        tab.classList.toggle('active-home-tab', tab.dataset.feed === feedType);
+    });
+    
+    // Reset and reload
+    homeCursor = '';
+    homeTweets = [];
+    homeLoadedIds = new Set();
+    hasMoreHome = true;
+    loadHomeTimeline();
+}
+
+/**
+ * Load home timeline tweets
+ */
+async function loadHomeTimeline(cursor = '') {
+    if (isLoadingHome) return;
+    isLoadingHome = true;
+    
+    try {
+        if (!cursor) {
+            document.getElementById('homeFeed').innerHTML = '<div class="loading">Loading...</div>';
+            homeTweets = [];
+            homeLoadedIds = new Set();
+            hasMoreHome = true;
+        }
+        
+        let url = `${API_BASE}/api/home/timeline?type=${homeFeedType}&count=20`;
+        if (cursor) {
+            url += `&cursor=${encodeURIComponent(cursor)}`;
+        }
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.success) {
+            const tweets = result.data.tweets;
+            const nextCursor = result.data.cursor || '';
+            
+            // Filter out already loaded tweets
+            const newTweets = tweets.filter(t => !homeLoadedIds.has(t.id));
+            newTweets.forEach(t => homeLoadedIds.add(t.id));
+            
+            if (!cursor) {
+                homeTweets = newTweets;
+                renderTweetsList(newTweets, true, 'homeFeed');
+            } else if (newTweets.length > 0) {
+                homeTweets = homeTweets.concat(newTweets);
+                renderTweetsList(newTweets, false, 'homeFeed');
+            }
+            
+            homeCursor = nextCursor;
+            hasMoreHome = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|') && newTweets.length > 0;
+        } else {
+            console.error('Home timeline API error:', result.error, result.traceback);
+            if (!cursor) {
+                const errMsg = result.traceback ? `<details><summary>${result.error || 'Failed to load'}</summary><pre style="text-align:left;max-height:300px;overflow:auto;font-size:12px;">${result.traceback}</pre></details>` : (result.error || 'Failed to load');
+                document.getElementById('homeFeed').innerHTML = `<div class="error">${errMsg}</div>`;
+            }
+            hasMoreHome = false;
+        }
+    } catch (error) {
+        console.error('Error loading home timeline:', error);
+        if (!cursor) {
+            document.getElementById('homeFeed').innerHTML = `<div class="error">Failed to load timeline.<br><pre style="text-align:left;max-height:200px;overflow:auto;font-size:12px;">${error.stack || error}</pre></div>`;
+        }
+        hasMoreHome = false;
+    } finally {
+        isLoadingHome = false;
+    }
+}
 
 /**
  * Switch between tabs
@@ -382,6 +506,28 @@ function setupInfiniteScroll() {
     let lastTriggerTime = 0;
     
     const handleScroll = () => {
+        // Home feed scroll
+        if (currentView === 'home') {
+            if (!hasMoreHome || isLoadingHome) return;
+            const scrollTop = window.scrollY || document.documentElement.scrollTop;
+            const windowHeight = window.innerHeight;
+            const docHeight = Math.max(
+                document.body.scrollHeight,
+                document.documentElement.scrollHeight,
+                document.body.offsetHeight,
+                document.documentElement.offsetHeight
+            );
+            const distanceToBottom = docHeight - (scrollTop + windowHeight);
+            const now = Date.now();
+            if (now - lastTriggerTime < 1000) return;
+            if (distanceToBottom < 1000 && distanceToBottom > -100 && homeCursor) {
+                lastTriggerTime = now;
+                console.log('Trigger load more home feed, cursor:', homeCursor);
+                loadHomeTimeline(homeCursor);
+            }
+            return;
+        }
+        
         const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
         const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
         const cursor = currentTab === 'media' ? mediaCursor : tweetsCursor;
@@ -512,7 +658,7 @@ function renderProfile(data) {
     headerTitle.textContent = user.name;
     
     currentView = 'profile';
-    backBtn.classList.add('hidden');
+    backBtn.classList.remove('hidden');
     
     // Check if there's more data
     hasMoreMedia = mediaCursor && mediaCursor !== '' && !mediaCursor.startsWith('0|');
@@ -521,62 +667,63 @@ function renderProfile(data) {
 /**
  * Render tweet media (images or video)
  */
-function renderTweetMedia(media) {
+function renderTweetMedia(media, tweetId) {
     if (!media || media.length === 0) return '';
+    
+    // Store media in map for lightbox access
+    if (tweetId) {
+        tweetMediaMap[tweetId] = media;
+    }
     
     const hasVideo = media.some(m => m.type === 'video' || m.type === 'animated_gif');
     if (hasVideo) {
         const videoMedia = media.find(m => m.type === 'video' || m.type === 'animated_gif');
-        const videoUrl = videoMedia.video_url || videoMedia.url;
         const duration = videoMedia.duration ? formatDuration(videoMedia.duration) : '';
+        const clickHandler = tweetId ? `onclick="openTweetLightbox('${tweetId}', 0)"` : '';
         return `
-            <a href="${proxyUrl(videoUrl, true)}" target="_blank" rel="noopener noreferrer" class="tweet-media tweet-media-video">
+            <div class="tweet-media tweet-media-video" ${clickHandler}>
                 <img src="${proxyUrl(videoMedia.url)}" alt="">
                 <div class="video-play-btn">
                     <svg viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
                 </div>
                 ${duration ? `<span class="video-duration">${duration}</span>` : ''}
-            </a>
+            </div>
         `;
     }
     
     const count = media.length;
     if (count === 1) {
         return `
-            <div class="tweet-media">
-                <a href="${proxyUrl(media[0].url)}" target="_blank" rel="noopener noreferrer">
-                    <img src="${proxyUrl(media[0].url)}" alt="">
-                </a>
+            <div class="tweet-media" onclick="openTweetLightbox('${tweetId}', 0)">
+                <img src="${proxyUrl(media[0].url)}" alt="">
             </div>
         `;
     } else if (count === 2) {
         return `
             <div class="tweet-media tweet-media-2">
-                <a href="${proxyUrl(media[0].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[0].url)}" alt=""></a>
-                <a href="${proxyUrl(media[1].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[1].url)}" alt=""></a>
+                <div onclick="openTweetLightbox('${tweetId}', 0)"><img src="${proxyUrl(media[0].url)}" alt=""></div>
+                <div onclick="openTweetLightbox('${tweetId}', 1)"><img src="${proxyUrl(media[1].url)}" alt=""></div>
             </div>
         `;
     } else if (count === 3) {
         return `
             <div class="tweet-media tweet-media-3">
-                <a href="${proxyUrl(media[0].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[0].url)}" alt=""></a>
+                <div onclick="openTweetLightbox('${tweetId}', 0)"><img src="${proxyUrl(media[0].url)}" alt=""></div>
                 <div class="tweet-media-3-right">
-                    <a href="${proxyUrl(media[1].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[1].url)}" alt=""></a>
-                    <a href="${proxyUrl(media[2].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[2].url)}" alt=""></a>
+                    <div onclick="openTweetLightbox('${tweetId}', 1)"><img src="${proxyUrl(media[1].url)}" alt=""></div>
+                    <div onclick="openTweetLightbox('${tweetId}', 2)"><img src="${proxyUrl(media[2].url)}" alt=""></div>
                 </div>
             </div>
         `;
     } else {
         return `
             <div class="tweet-media tweet-media-4">
-                <a href="${proxyUrl(media[0].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[0].url)}" alt=""></a>
-                <a href="${proxyUrl(media[1].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[1].url)}" alt=""></a>
-                <a href="${proxyUrl(media[2].url)}" target="_blank" rel="noopener noreferrer"><img src="${proxyUrl(media[2].url)}" alt=""></a>
-                <div class="tweet-media-4th">
-                    <a href="${proxyUrl(media[3].url)}" target="_blank" rel="noopener noreferrer">
-                        <img src="${proxyUrl(media[3].url)}" alt="">
-                        ${count > 4 ? `<span class="more-images">+${count - 4}</span>` : ''}
-                    </a>
+                <div onclick="openTweetLightbox('${tweetId}', 0)"><img src="${proxyUrl(media[0].url)}" alt=""></div>
+                <div onclick="openTweetLightbox('${tweetId}', 1)"><img src="${proxyUrl(media[1].url)}" alt=""></div>
+                <div onclick="openTweetLightbox('${tweetId}', 2)"><img src="${proxyUrl(media[2].url)}" alt=""></div>
+                <div class="tweet-media-4th" onclick="openTweetLightbox('${tweetId}', 3)">
+                    <img src="${proxyUrl(media[3].url)}" alt="">
+                    ${count > 4 ? `<span class="more-images">+${count - 4}</span>` : ''}
                 </div>
             </div>
         `;
@@ -586,8 +733,8 @@ function renderTweetMedia(media) {
 /**
  * Render tweets list
  */
-function renderTweetsList(tweets, replace = true) {
-    const list = document.getElementById('tweetsList');
+function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
+    const list = document.getElementById(containerId);
     
     if (!tweets || tweets.length === 0) {
         if (replace) list.innerHTML = '<div class="loading">No posts found</div>';
@@ -608,8 +755,8 @@ function renderTweetsList(tweets, replace = true) {
     
     const renderTweetHeader = (name, handle, avatar, date) => `
         <div class="tweet-header">
-            <img class="tweet-avatar" src="${proxyUrl(avatar)}" alt="">
-            <div class="tweet-author">
+            <img class="tweet-avatar" src="${proxyUrl(avatar)}" alt="" onclick="navigateToProfile('${handle}')">
+            <div class="tweet-author" onclick="navigateToProfile('${handle}')">
                 <span class="tweet-author-name">${escapeHtml(name)}</span>
                 <span class="tweet-author-handle">@${handle}</span>
             </div>
@@ -647,7 +794,7 @@ function renderTweetsList(tweets, replace = true) {
                 ${renderTweetHeader(qName, qHandle, qAvatar, nestedTweet.created_at)}
                 <div class="tweet-text">${escapeHtml(nestedTweet.text)}</div>
                 ${translateBtnHtml(nestedTweet.id)}
-                ${renderTweetMedia(nestedTweet.media)}
+                ${renderTweetMedia(nestedTweet.media, nestedTweet.id)}
             </div>
         `;
     };
@@ -699,7 +846,7 @@ function renderTweetsList(tweets, replace = true) {
                     ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
                     ${quoteText ? `<div class="tweet-text">${escapeHtml(quoteText)}</div>` : ''}
                     ${translateBtnHtml(tweet.id)}
-                    ${renderTweetMedia(tweet.media)}
+                    ${renderTweetMedia(tweet.media, tweet.id)}
                     ${renderNestedCard(quotedTweet)}
                     ${renderTweetStats(tweet.stats)}
                 </div>
@@ -712,7 +859,7 @@ function renderTweetsList(tweets, replace = true) {
                 ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
                 <div class="tweet-text">${escapeHtml(tweet.text)}</div>
                 ${translateBtnHtml(tweet.id)}
-                ${renderTweetMedia(tweet.media)}
+                ${renderTweetMedia(tweet.media, tweet.id)}
                 ${renderTweetStats(tweet.stats)}
             </div>
         `;
@@ -785,6 +932,7 @@ let isLightboxAnimating = false;
 
 function openLightbox(index) {
     lightboxIndex = index;
+    isTweetLightbox = false;
     renderLightboxItem();
     document.getElementById('lightbox').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -793,6 +941,21 @@ function openLightbox(index) {
     if (allMedia.length - lightboxIndex <= 3 && hasMoreMedia && !isLoadingMedia && currentUser) {
         loadUserMedia(currentUser.screen_name, mediaCursor);
     }
+}
+
+/**
+ * Open lightbox for tweet media (supports multiple images/videos in one tweet)
+ */
+function openTweetLightbox(tweetId, startIndex) {
+    const mediaItems = tweetMediaMap[tweetId];
+    if (!mediaItems || mediaItems.length === 0) return;
+    
+    tweetLightboxMedia = mediaItems;
+    lightboxIndex = startIndex;
+    isTweetLightbox = true;
+    renderLightboxItem();
+    document.getElementById('lightbox').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 }
 
 function closeLightbox() {
@@ -809,19 +972,25 @@ function closeLightbox() {
 function lightboxNav(direction) {
     if (isLightboxAnimating) return;
     
+    const mediaArr = isTweetLightbox ? tweetLightboxMedia : allMedia;
     const newIndex = lightboxIndex + direction;
     
-    // If navigating beyond the end, try loading more
-    if (newIndex >= allMedia.length) {
-        if (hasMoreMedia && !isLoadingMedia && currentUser) {
-            loadUserMedia(currentUser.screen_name, mediaCursor).then(() => {
-                if (newIndex < allMedia.length) {
-                    lightboxIndex = newIndex;
-                    renderLightboxItem(direction);
-                }
-            });
+    // Tweet lightbox: no loading more, just clamp
+    if (isTweetLightbox) {
+        if (newIndex < 0 || newIndex >= mediaArr.length) return;
+    } else {
+        // Profile media grid lightbox: try loading more
+        if (newIndex >= mediaArr.length) {
+            if (hasMoreMedia && !isLoadingMedia && currentUser) {
+                loadUserMedia(currentUser.screen_name, mediaCursor).then(() => {
+                    if (newIndex < allMedia.length) {
+                        lightboxIndex = newIndex;
+                        renderLightboxItem(direction);
+                    }
+                });
+            }
+            return;
         }
-        return;
     }
     
     if (newIndex < 0) return;
@@ -841,7 +1010,8 @@ function lightboxNav(direction) {
 }
 
 function renderLightboxItem(direction) {
-    const media = allMedia[lightboxIndex];
+    const mediaArr = isTweetLightbox ? tweetLightboxMedia : allMedia;
+    const media = mediaArr[lightboxIndex];
     if (!media) return;
     
     const content = document.getElementById('lightboxContent');
@@ -875,7 +1045,8 @@ function renderLightboxItem(direction) {
     }
     
     // Update counter
-    document.getElementById('lightboxCounter').textContent = `${lightboxIndex + 1} / ${allMedia.length}`;
+    document.getElementById('lightboxCounter').textContent = `${lightboxIndex + 1} / ${mediaArr.length}`;
+    
 }
 
 /**
@@ -896,9 +1067,10 @@ function navigateToFollowing(screenName) {
  */
 function navigateToProfile(screenName) {
     // Switch views
+    homeView.classList.add('hidden');
     followingView.classList.add('hidden');
     profileView.classList.remove('hidden');
-    backBtn.classList.add('hidden');
+    backBtn.classList.remove('hidden');
     currentView = 'profile';
     
     // Reset state - clear currentUser first so switchTab won't load stale data
@@ -935,6 +1107,7 @@ function navigateToProfile(screenName) {
 async function showFollowing(screenName) {
     try {
         followingView.classList.remove('hidden');
+        homeView.classList.add('hidden');
         profileView.classList.add('hidden');
         
         document.getElementById('followingTitle').textContent = `People @${screenName} follows`;
@@ -1103,18 +1276,18 @@ async function toggleFollowInList(userId, isFollowing, button) {
  */
 function goBack() {
     followingView.classList.add('hidden');
-    profileView.classList.remove('hidden');
+    profileView.classList.add('hidden');
+    homeView.classList.remove('hidden');
     
-    // Update URL to remove view parameter
+    // Update URL
     const url = new URL(window.location);
+    url.searchParams.delete('user');
     url.searchParams.delete('view');
-    window.history.pushState({ view: 'profile' }, '', url);
+    window.history.pushState({ view: 'home' }, '', url);
     
-    if (currentUser) {
-        headerTitle.textContent = currentUser.name;
-    }
+    headerTitle.textContent = 'Home';
     backBtn.classList.add('hidden');
-    currentView = 'profile';
+    currentView = 'home';
 }
 
 /**
@@ -1217,21 +1390,23 @@ async function translateTweet(tweetId, btn) {
 window.addEventListener('popstate', (event) => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get('view');
+    const user = params.get('user');
     
-    if (view === 'following') {
-        const screenName = params.get('user');
-        if (screenName) {
-            showFollowing(screenName);
-        }
-    } else {
+    if (view === 'following' && user) {
+        showFollowing(user);
+    } else if (user) {
         // Go back to profile view
         followingView.classList.add('hidden');
         profileView.classList.remove('hidden');
+        homeView.classList.add('hidden');
         
         if (currentUser) {
             headerTitle.textContent = currentUser.name;
         }
-        backBtn.classList.add('hidden');
+        backBtn.classList.remove('hidden');
         currentView = 'profile';
+    } else {
+        // No user param = home view
+        showHome();
     }
 });

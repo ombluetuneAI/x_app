@@ -17,11 +17,79 @@ class TweetAPI(BaseAPI):
     
     Methods:
         get_user_tweets: Get tweets from a user's timeline
+        get_home_timeline: Get home timeline tweets (For You or Following)
     """
     
     def __init__(self, http_client):
         super().__init__(http_client)
         self._parser = TweetTimelineParser()
+    
+    def get_home_timeline(
+        self,
+        count: int = 20,
+        include_promoted_content: bool = True,
+        latest: bool = False,
+        max_pages: Optional[int] = None,
+        cursor: str = ""
+    ) -> tuple:
+        """
+        Get home timeline tweets.
+        
+        Args:
+            count: Number of tweets per page (default 20, max 200)
+            include_promoted_content: Whether to include promoted content
+            latest: If True, get Following feed (chronological); 
+                    if False, get For You feed (algorithmic)
+            max_pages: Maximum number of pages to fetch (None for all)
+            cursor: Pagination cursor for continuing from previous request
+            
+        Returns:
+            Tuple of (List of Tweet objects, next cursor)
+        """
+        all_tweets = []
+        next_cursor = cursor
+        page = 0
+        
+        while True:
+            if max_pages and page >= max_pages:
+                break
+            
+            variables = {
+                "count": count,
+                "includePromotedContent": include_promoted_content,
+                "latestControlAvailable": True,
+                "requestContext": "launch",
+                "withVoice": True,
+            }
+            
+            if next_cursor:
+                variables["cursor"] = next_cursor
+            
+            if latest:
+                endpoint = APIEndpoints.HOME_LATEST_TIMELINE
+                features = Features.HOME_LATEST_TIMELINE
+            else:
+                endpoint = APIEndpoints.HOME_TIMELINE
+                features = Features.HOME_TIMELINE
+            
+            params = self._build_params(
+                variables=variables,
+                features=features,
+                field_toggles=Features.FIELD_TOGGLES_WITH_ARTICLE
+            )
+            
+            data = self._get(endpoint, params)
+            tweets, next_cursor = self._parser.parse_tweets(data)
+            
+            all_tweets.extend(tweets)
+            page += 1
+            
+            if not next_cursor or next_cursor.startswith("0|"):
+                break
+            
+            cursor = next_cursor
+        
+        return all_tweets, next_cursor
     
     def get_user_tweets(
         self,

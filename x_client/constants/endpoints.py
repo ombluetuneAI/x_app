@@ -35,6 +35,10 @@ class APIEndpoints:
     USER_MEDIA = "/i/api/graphql/MOLbHrtk8Ovu7DUNOLcXiA/UserMedia"
     FOLLOWING = "/i/api/graphql/7FEKOPNAvxWASt6v9gfCXw/Following"
     
+    # Home timeline endpoints (GraphQL)
+    HOME_TIMELINE = "/i/api/graphql/1u0Wlkw6Ru1NwBUD-pDiww/HomeTimeline"
+    HOME_LATEST_TIMELINE = "/i/api/graphql/9EwYy8pLBOSFlEoSP2STiQ/HomeLatestTimeline"
+    
     # User endpoints (REST API v1.1 - more stable)
     CREATE_FRIENDSHIP = "/i/api/1.1/friendships/create.json"
     DESTROY_FRIENDSHIP = "/i/api/1.1/friendships/destroy.json"
@@ -178,6 +182,37 @@ class Features:
     
     # Features for Following API (same as ListMembers)
     FOLLOWING = LIST_MEMBERS
+    
+    # Features for Home Timeline API (For You feed)
+    HOME_TIMELINE = json_dumps({
+        "rweb_tipjar_consumption_enabled": True,
+        "responsive_web_graphql_exclude_directive_enabled": True,
+        "verified_phone_label_enabled": False,
+        "creator_subscriptions_tweet_preview_api_enabled": True,
+        "responsive_web_graphql_timeline_navigation_enabled": True,
+        "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
+        "communities_web_enable_tweet_community_results_fetch": True,
+        "c9s_tweet_anatomy_moderator_badge_enabled": True,
+        "articles_preview_enabled": True,
+        "tweetypie_unmention_optimization_enabled": True,
+        "responsive_web_edit_tweet_api_enabled": True,
+        "graphql_is_translatable_rweb_tweet_is_translatable_enabled": True,
+        "view_counts_everywhere_api_enabled": True,
+        "longform_notetweets_consumption_enabled": True,
+        "responsive_web_twitter_article_tweet_consumption_enabled": True,
+        "tweet_awards_web_tipping_enabled": False,
+        "creator_subscriptions_quote_tweet_preview_enabled": False,
+        "freedom_of_speech_not_reach_fetch_enabled": True,
+        "standardized_nudges_misinfo": True,
+        "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": True,
+        "rweb_video_timestamps_enabled": True,
+        "longform_notetweets_rich_text_read_enabled": True,
+        "longform_notetweets_inline_media_enabled": True,
+        "responsive_web_enhance_cards_enabled": False,
+    })
+    
+    # Features for Home Latest Timeline API (Following feed - same as Home Timeline)
+    HOME_LATEST_TIMELINE = HOME_TIMELINE
     
     # Field toggles
     FIELD_TOGGLES_WITH_ARTICLE = '{"withArticlePlainText":false}'

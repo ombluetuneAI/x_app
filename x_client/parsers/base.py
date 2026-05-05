@@ -76,6 +76,8 @@ class TimelineParser(BaseParser):
             ("data", "user", "result", "timeline_v2", "timeline", "instructions"),
             ("data", "user", "result", "timeline", "timeline", "instructions"),
             ("data", "list", "members_timeline", "timeline", "instructions"),
+            # Home timeline structure
+            ("data", "home", "home_timeline_urt", "instructions"),
         ]
         
         for path in paths:
