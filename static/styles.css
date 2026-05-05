@@ -1095,6 +1095,163 @@ html, body {
     to { opacity: 1; }
 }
 
+/* Settings Button in Header */
+.settings-btn {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px;
+    margin-left: auto;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.settings-btn:hover {
+    background-color: rgba(231, 233, 234, 0.1);
+}
+
+/* Settings Modal */
+.settings-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-modal.hidden {
+    display: none !important;
+}
+
+.settings-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(91, 112, 131, 0.4);
+    animation: fadeIn 0.15s ease;
+}
+
+.settings-panel {
+    position: relative;
+    width: 90%;
+    max-width: 420px;
+    background: var(--secondary-bg);
+    border-radius: 16px;
+    overflow: hidden;
+    animation: settingsSlideIn 0.2s ease;
+    z-index: 1;
+}
+
+@keyframes settingsSlideIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.settings-close {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.settings-close:hover {
+    background-color: rgba(231, 233, 234, 0.1);
+}
+
+.settings-body {
+    padding: 20px;
+}
+
+.settings-section h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.settings-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.settings-field {
+    margin-bottom: 16px;
+}
+
+.settings-field label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.settings-field input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--primary-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.settings-field input::placeholder {
+    color: var(--text-secondary);
+}
+
+.settings-field input:focus {
+    border-color: var(--accent-color);
+}
+
+.settings-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.settings-save {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 8px 24px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.settings-save:hover {
+    background-color: var(--accent-hover);
+}
+
 /* Responsive */
 @media (min-width: 768px) {
     .avatar {

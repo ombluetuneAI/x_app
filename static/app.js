@@ -1321,70 +1321,7 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-/**
- * Translate a tweet to Chinese
- */
-const translationCache = {};
-
-async function translateTweet(tweetId, btn) {
-    const area = document.getElementById(`translate-${tweetId}`);
-    const translationDiv = area.querySelector('.tweet-translation');
-
-    // If already translated, toggle visibility
-    if (translationDiv.textContent) {
-        translationDiv.classList.toggle('hidden');
-        btn.innerHTML = translationDiv.classList.contains('hidden')
-            ? `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg> 翻译`
-            : `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg> 收起翻译`;
-        return;
-    }
-
-    // Check cache
-    if (translationCache[tweetId]) {
-        translationDiv.textContent = translationCache[tweetId];
-        translationDiv.classList.remove('hidden');
-        btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg> 收起翻译`;
-        return;
-    }
-
-    // Get tweet text from the DOM
-    const tweetTextEl = area.previousElementSibling;
-    const text = tweetTextEl ? tweetTextEl.textContent : '';
-
-    if (!text) {
-        showToast('No text to translate', 'error');
-        return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = `<svg class="spin" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12h2c0-4.418 3.582-8 8-8V2z"></path></svg> 翻译中...`;
-
-    try {
-        const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|zh-CN`);
-        const data = await response.json();
-
-        if (data.responseStatus === 200) {
-            const translated = data.responseData.translatedText;
-            if (translated === text) {
-                translationDiv.textContent = '原文已是中文，无需翻译';
-            } else {
-                translationCache[tweetId] = translated;
-                translationDiv.textContent = translated;
-            }
-            translationDiv.classList.remove('hidden');
-            btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg> 收起翻译`;
-        } else {
-            showToast('Translation service unavailable', 'error');
-            btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg> 翻译`;
-        }
-    } catch (error) {
-        console.error('Translation error:', error);
-        showToast('Translation request failed', 'error');
-        btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg> 翻译`;
-    } finally {
-        btn.disabled = false;
-    }
-}
+// Translation functions are in translate.js
 
 // Handle browser back/forward button
 window.addEventListener('popstate', (event) => {
