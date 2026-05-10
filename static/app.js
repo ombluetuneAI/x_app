@@ -107,62 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Infinite scroll with Intersection Observer
     setupInfiniteScroll();
-    
-    // Lightbox keyboard navigation
-    document.addEventListener('keydown', (e) => {
-        const lightbox = document.getElementById('lightbox');
-        if (lightbox.classList.contains('hidden')) return;
-        
-        if (e.key === 'Escape') closeLightbox();
-        else if (e.key === 'ArrowUp') { e.preventDefault(); lightboxNav(-1); }
-        else if (e.key === 'ArrowDown') { e.preventDefault(); lightboxNav(1); }
-        else if (e.key === 'ArrowLeft') { e.preventDefault(); lightboxNav(-1); }
-        else if (e.key === 'ArrowRight') { e.preventDefault(); lightboxNav(1); }
-    });
-    
-    // Lightbox touch/swipe support - vertical swipe like short video apps
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchStartTime = 0;
-
-
-    document.getElementById('lightbox').addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-        touchStartY = e.changedTouches[0].screenY;
-        touchStartTime = Date.now();
-    }, { passive: false });
-    
-    document.getElementById('lightbox').addEventListener('touchmove', (e) => {
-        // Prevent background scrolling while lightbox is open
-        e.preventDefault();
-    }, { passive: false });
-    
-    document.getElementById('lightbox').addEventListener('touchend', (e) => {
-        if (isLightboxAnimating) return;
-        
-        const dx = e.changedTouches[0].screenX - touchStartX;
-        const dy = e.changedTouches[0].screenY - touchStartY;
-        const dt = Date.now() - touchStartTime;
-        
-        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50) {
-            e.preventDefault();
-            if (dy < 0) lightboxNav(1);  // Swipe up = next
-            else lightboxNav(-1);          // Swipe down = prev
-        }
-    }, { passive: false });
-    
-    // Mouse wheel support for desktop
-    let wheelTimeout = null;
-    document.getElementById('lightbox').addEventListener('wheel', (e) => {
-        if (isLightboxAnimating) return;
-        e.preventDefault();
-        if (wheelTimeout) return;
-        
-        if (e.deltaY > 0) lightboxNav(1);   // Scroll down = next
-        else if (e.deltaY < 0) lightboxNav(-1); // Scroll up = prev
-        
-        wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 400);
-    }, { passive: false });
 });
 
 /**
@@ -477,10 +421,12 @@ async function loadUserMedia(screenName, cursor = '') {
             mediaCursor = nextCursor;
             hasMoreMedia = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|') && newMedia.length > 0;
             
-            // Update lightbox counter if lightbox is open
-            const lightbox = document.getElementById('lightbox');
-            if (!lightbox.classList.contains('hidden')) {
-                document.getElementById('lightboxCounter').textContent = `${lightboxIndex + 1} / ${allMedia.length}`;
+            // Update PhotoSwipe items if lightbox is open
+            if (isLightboxOpen && pswp && !isTweetLightbox) {
+                const currentLength = pswpItems.length;
+                for (let i = currentLength; i < allMedia.length; i++) {
+                    pswpItems.push(mediaToPswpItem(allMedia[i]));
+                }
             }
         } else {
             if (!cursor) {
@@ -932,20 +878,113 @@ function renderMediaGrid(mediaList, replace = true) {
 }
 
 /**
- * Media Lightbox
+ * PhotoSwipe-based Media Lightbox
  */
-let lightboxIndex = 0;
-let isLightboxAnimating = false;
+let pswp = null;
+let isLightboxOpen = false;
+let pswpItems = [];
+let isLightboxClosingFromPopstate = false;
 
+/**
+ * Convert a media item to PhotoSwipe item format
+ */
+function mediaToPswpItem(m) {
+    const isVideo = m.type === 'video' || m.type === 'animated_gif';
+    return {
+        src: proxyUrl(m.url),
+        w: m.width || 0,
+        h: m.height || 0,
+        isVideo,
+        videoUrl: isVideo ? (m.video_url || m.url) : null,
+    };
+}
+
+/**
+ * Initialize PhotoSwipe lightbox
+ */
+function initPhotoSwipe(startIndex) {
+    if (pswp) {
+        pswp.close();
+        pswp = null;
+    }
+    
+    pswp = new PhotoSwipe({
+        dataSource: pswpItems,
+        index: startIndex,
+        history: false,
+        bgOpacity: 1,
+        showHideOpacity: true,
+        spacing: 0.1,
+        zoom: true,
+        closeOnVerticalDrag: true,
+        pinchToClose: true,
+        counter: true,
+        arrowKeys: true,
+        clickToCloseNonZoomable: false,
+    });
+    
+    // Handle video content
+    pswp.on('contentLoad', (e) => {
+        const { content } = e;
+        if (content.data.isVideo) {
+            e.preventDefault();
+            const container = document.createElement('div');
+            container.className = 'pswp-video-container';
+            const iframe = document.createElement('iframe');
+            iframe.src = content.data.videoUrl;
+            iframe.allow = 'autoplay';
+            iframe.allowFullscreen = true;
+            container.appendChild(iframe);
+            content.element = container;
+            content.onLoaded();
+        }
+    });
+    
+    // Stop video when navigating away & preload more media
+    pswp.on('slideChange', () => {
+        // Stop all iframes except current
+        if (pswp && pswp.element) {
+            pswp.element.querySelectorAll('.pswp-video-container iframe').forEach(iframe => {
+                const slide = iframe.closest('.pswp__slide');
+                if (slide && !slide.classList.contains('pswp__slide--active')) {
+                    iframe.src = iframe.src;
+                }
+            });
+        }
+        
+        // Preload more media if near the end (profile media grid only)
+        if (!isTweetLightbox && allMedia.length - pswp.currIndex <= 3 && hasMoreMedia && !isLoadingMedia && currentUser) {
+            loadUserMedia(currentUser.screen_name, mediaCursor);
+        }
+    });
+    
+    pswp.on('afterOpen', () => {
+        isLightboxOpen = true;
+        history.pushState({ lightbox: true }, '');
+    });
+    
+    pswp.on('close', () => {
+        isLightboxOpen = false;
+        if (!isLightboxClosingFromPopstate && history.state && history.state.lightbox) {
+            history.back();
+        }
+        isLightboxClosingFromPopstate = false;
+        pswp = null;
+    });
+    
+    pswp.init();
+}
+
+/**
+ * Open lightbox for profile media grid
+ */
 function openLightbox(index) {
-    lightboxIndex = index;
     isTweetLightbox = false;
-    renderLightboxItem();
-    document.getElementById('lightbox').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    pswpItems = allMedia.map(mediaToPswpItem);
+    initPhotoSwipe(index);
     
     // Preload more media if near the end
-    if (allMedia.length - lightboxIndex <= 3 && hasMoreMedia && !isLoadingMedia && currentUser) {
+    if (allMedia.length - index <= 3 && hasMoreMedia && !isLoadingMedia && currentUser) {
         loadUserMedia(currentUser.screen_name, mediaCursor);
     }
 }
@@ -957,103 +996,18 @@ function openTweetLightbox(tweetId, startIndex) {
     const mediaItems = tweetMediaMap[tweetId];
     if (!mediaItems || mediaItems.length === 0) return;
     
-    tweetLightboxMedia = mediaItems;
-    lightboxIndex = startIndex;
     isTweetLightbox = true;
-    renderLightboxItem();
-    document.getElementById('lightbox').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    pswpItems = mediaItems.map(mediaToPswpItem);
+    initPhotoSwipe(startIndex);
 }
 
+/**
+ * Close lightbox
+ */
 function closeLightbox() {
-    const lightbox = document.getElementById('lightbox');
-    const content = document.getElementById('lightboxContent');
-    // Stop iframe video by removing src
-    const iframe = content.querySelector('iframe');
-    if (iframe) iframe.src = '';
-    content.innerHTML = '';
-    lightbox.classList.add('hidden');
-    document.body.style.overflow = '';
-}
-
-function lightboxNav(direction) {
-    if (isLightboxAnimating) return;
-    
-    const mediaArr = isTweetLightbox ? tweetLightboxMedia : allMedia;
-    const newIndex = lightboxIndex + direction;
-    
-    // Tweet lightbox: no loading more, just clamp
-    if (isTweetLightbox) {
-        if (newIndex < 0 || newIndex >= mediaArr.length) return;
-    } else {
-        // Profile media grid lightbox: try loading more
-        if (newIndex >= mediaArr.length) {
-            if (hasMoreMedia && !isLoadingMedia && currentUser) {
-                loadUserMedia(currentUser.screen_name, mediaCursor).then(() => {
-                    if (newIndex < allMedia.length) {
-                        lightboxIndex = newIndex;
-                        renderLightboxItem(direction);
-                    }
-                });
-            }
-            return;
-        }
+    if (pswp) {
+        pswp.close();
     }
-    
-    if (newIndex < 0) return;
-    
-    // Stop current iframe video
-    const content = document.getElementById('lightboxContent');
-    const iframe = content.querySelector('iframe');
-    if (iframe) iframe.src = '';
-    
-    lightboxIndex = newIndex;
-    renderLightboxItem(direction);
-    
-    // Preload next items if near the end
-    if (allMedia.length - lightboxIndex <= 3 && hasMoreMedia && !isLoadingMedia && currentUser) {
-        loadUserMedia(currentUser.screen_name, mediaCursor);
-    }
-}
-
-function renderLightboxItem(direction) {
-    const mediaArr = isTweetLightbox ? tweetLightboxMedia : allMedia;
-    const media = mediaArr[lightboxIndex];
-    if (!media) return;
-    
-    const content = document.getElementById('lightboxContent');
-    const isVideo = media.type === 'video' || (media.type === 'animated_gif' && media.video_url);
-    
-    if (isVideo) {
-        const videoUrl = media.video_url || media.url;
-        content.innerHTML = `<iframe src="${videoUrl}" allow="autoplay" allowfullscreen></iframe><div class="lightbox-swipe-overlay" id="lightboxOverlay"></div>`;
-        // Tap overlay to temporarily allow video interaction, auto-restore after 3s
-        const overlay = document.getElementById('lightboxOverlay');
-        overlay.addEventListener('click', () => {
-            overlay.style.display = 'none';
-            clearTimeout(overlay._restoreTimer);
-            overlay._restoreTimer = setTimeout(() => {
-                overlay.style.display = '';
-            }, 3000);
-        });
-    } else {
-        content.innerHTML = `<img src="${proxyUrl(media.url)}" alt="">`;
-    }
-    
-    // Apply slide animation
-    if (direction !== undefined) {
-        isLightboxAnimating = true;
-        const animClass = direction > 0 ? 'lightbox-slide-in-next' : 'lightbox-slide-in-prev';
-        content.classList.add(animClass);
-        content.addEventListener('animationend', () => {
-            content.classList.remove(animClass);
-            isLightboxAnimating = false;
-        }, { once: true });
-    }
-    
-    // Update counter
-    document.getElementById('lightboxCounter').textContent = `${lightboxIndex + 1} / ${mediaArr.length}`;
-    
 }
 
 /**
@@ -1332,6 +1286,13 @@ function escapeHtml(text) {
 
 // Handle browser back/forward button
 window.addEventListener('popstate', (event) => {
+    // If lightbox is open, close it instead of navigating away
+    if (isLightboxOpen && pswp) {
+        isLightboxClosingFromPopstate = true;
+        pswp.close();
+        return;
+    }
+    
     const params = new URLSearchParams(window.location.search);
     const view = params.get('view');
     const user = params.get('user');
