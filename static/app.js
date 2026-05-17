@@ -257,10 +257,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load appropriate view based on URL
     if (view === 'following' && screenName) {
         showFollowing(screenName);
-    } else if (view === 'profile' && screenName) {
+    } else if (screenName) {
+        // Default: show user profile when user param is present
         loadUserProfile(screenName);
     } else {
-        // Default: show home timeline
+        // No user param: show home timeline
         showHome();
     }
     
@@ -782,6 +783,10 @@ function renderProfile(data) {
     // Update header
     headerTitle.textContent = user.name;
     
+    // Switch views
+    homeView.classList.add('hidden');
+    profileView.classList.remove('hidden');
+    followingView.classList.add('hidden');
     currentView = 'profile';
     backBtn.classList.remove('hidden');
     
