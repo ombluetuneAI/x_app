@@ -61,7 +61,7 @@ function exportSettings() {
 function importSettings() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json';
+    input.accept = 'application/json,.json';
     input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
