@@ -93,6 +93,42 @@ class User:
             created_at=legacy.get("created_at", ""),
         )
     
+    @classmethod
+    def from_v1_dict(cls, data: dict) -> "User":
+        """Create User from v1.1 REST API response dictionary."""
+        # v1.1 url field: can be a string, or an entity dict with 'urls' key
+        url_val = data.get("url") or ""
+        if isinstance(url_val, dict):
+            urls = url_val.get("urls", [])
+            url_val = urls[0].get("expanded_url", "") if urls else ""
+        
+        stats = UserStats(
+            friends_count=data.get("friends_count", 0),
+            followers_count=data.get("followers_count", 0),
+            statuses_count=data.get("statuses_count", 0),
+            media_count=data.get("media_count", 0),
+            listed_count=data.get("listed_count", 0),
+            favourites_count=data.get("favourites_count", 0),
+        )
+        
+        return cls(
+            id=str(data.get("id_str", data.get("id", ""))),
+            name=data.get("name", ""),
+            screen_name=data.get("screen_name", ""),
+            description=data.get("description", ""),
+            location=data.get("location") or "",
+            url=url_val,
+            profile_image_url=data.get("profile_image_url_https", ""),
+            profile_banner_url=data.get("profile_banner_url", ""),
+            protected=data.get("protected", False),
+            verified=data.get("verified", False),
+            following=data.get("following", False),
+            muting=data.get("muting", False),
+            blocking=data.get("blocking", False),
+            stats=stats,
+            created_at=data.get("created_at", ""),
+        )
+    
     def to_dict(self) -> dict:
         """Convert User to dictionary."""
         return {

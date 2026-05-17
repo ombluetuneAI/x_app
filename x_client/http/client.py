@@ -246,6 +246,10 @@ class HTTPClient:
                 
                 resp = self.session.request(method, url, **kwargs)
                 
+                # Debug: log response status and content preview
+                content_preview = resp.text[:300] if resp.text else "(empty)"
+                print(f"[HTTP] {method} {url} -> {resp.status_code}: {content_preview}")
+                
                 # Handle rate limiting
                 if resp.status_code == 429:
                     retry_after = resp.headers.get("Retry-After")
@@ -274,15 +278,23 @@ class HTTPClient:
                 
             except (RateLimitError, HTTPError):
                 raise
+            except json.JSONDecodeError as e:
+                # Response received but not valid JSON
+                raise HTTPError(
+                    status_code=resp.status_code if resp else 0,
+                    message=f"Invalid JSON response from {url}: {str(e)}"
+                )
             except requests.RequestException as e:
                 last_error = e
+                error_detail = f"{type(e).__name__}: {str(e)}"
+                print(f"[HTTP] Attempt {attempt + 1}/{self.max_retries + 1} failed: {error_detail}")
                 if attempt < self.max_retries:
                     wait_time = self.retry_delay * (2 ** attempt)
                     time.sleep(wait_time)
         
         raise HTTPError(
             status_code=0,
-            message=f"Request failed after {self.max_retries} retries: {last_error}"
+            message=f"Request failed after {self.max_retries} retries: {type(last_error).__name__}: {last_error}"
         )
     
     def get(

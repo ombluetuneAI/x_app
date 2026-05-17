@@ -80,10 +80,10 @@
                         <span class="stat-value" id="followingCount">0</span>
                         <span class="stat-label">Following</span>
                     </a>
-                    <span class="stat-item">
+                    <a href="#" id="followersLink" class="stat-item">
                         <span class="stat-value" id="followersCount">0</span>
                         <span class="stat-label">Followers</span>
-                    </span>
+                    </a>
                 </div>
             </div>
 
@@ -132,6 +132,16 @@
             </div>
             <div id="followingList" class="following-list">
                 <div class="loading">Loading following...</div>
+            </div>
+        </div>
+
+        <!-- Followers View -->
+        <div id="followersView" class="view hidden">
+            <div class="following-header">
+                <span id="followersTitle"></span>
+            </div>
+            <div id="followersList" class="following-list">
+                <div class="loading">Loading followers...</div>
             </div>
         </div>
     </div>

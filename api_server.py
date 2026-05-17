@@ -131,6 +131,31 @@ def get_user_following(screen_name):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/user/<screen_name>/followers')
+def get_user_followers(screen_name):
+    """Get user's followers list."""
+    try:
+        client = get_client()
+        user = client.user.get_user_by_screen_name(screen_name)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        count = request.args.get('count', 100, type=int)
+        followers = client.user.get_followers(user.id, count=count, max_pages=1)
+        
+        users = [u.to_dict() for u in followers]
+        
+        return jsonify({
+            "success": True,
+            "data": {
+                "user": user.to_dict(),
+                "followers": users
+            }
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/user/<screen_name>/tweets')
 def get_user_tweets(screen_name):
     """Get user's tweets (posts)."""

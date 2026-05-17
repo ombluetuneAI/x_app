@@ -111,6 +111,66 @@ class UserAPI(BaseAPI):
         
         return all_users
     
+    def get_followers(
+        self,
+        user_id: str,
+        count: int = 200,
+        max_pages: Optional[int] = None
+    ) -> List[User]:
+        """
+        Get users that follow a user.
+        
+        Uses v1.1 REST API which is more stable than GraphQL
+        (no query hash rotation issues).
+        
+        Args:
+            user_id: User ID
+            count: Number of users per page (max 200)
+            max_pages: Maximum number of pages to fetch (None for all)
+            
+        Returns:
+            List of User objects
+        """
+        from ..models import User as UserModel
+        
+        all_users = []
+        cursor = -1
+        page = 0
+        
+        while True:
+            if max_pages and page >= max_pages:
+                break
+            
+            params = {
+                "user_id": str(user_id),
+                "count": str(count),
+                "cursor": str(cursor),
+                "skip_status": "true",
+                "include_user_entities": "true",
+            }
+            
+            data = self._get(APIEndpoints.FOLLOWERS, params=params)
+            
+            users_data = data.get("users", [])
+            if not users_data:
+                break
+            
+            for user_data in users_data:
+                user = UserModel.from_v1_dict(user_data)
+                if user:
+                    all_users.append(user)
+            
+            page += 1
+            
+            # Get next cursor for pagination
+            next_cursor = data.get("next_cursor", 0)
+            if not next_cursor or next_cursor == 0:
+                break
+            
+            cursor = next_cursor
+        
+        return all_users
+    
     def follow_user(self, user_id: str) -> bool:
         """
         Follow a user.

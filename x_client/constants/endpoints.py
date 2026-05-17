@@ -35,6 +35,9 @@ class APIEndpoints:
     USER_MEDIA = "/i/api/graphql/MOLbHrtk8Ovu7DUNOLcXiA/UserMedia"
     FOLLOWING = "/i/api/graphql/7FEKOPNAvxWASt6v9gfCXw/Following"
     
+    # Followers endpoint (REST API v1.1 - more stable than GraphQL)
+    FOLLOWERS = "/i/api/1.1/followers/list.json"
+    
     # Home timeline endpoints (GraphQL)
     HOME_TIMELINE = "/i/api/graphql/1u0Wlkw6Ru1NwBUD-pDiww/HomeTimeline"
     HOME_LATEST_TIMELINE = "/i/api/graphql/9EwYy8pLBOSFlEoSP2STiQ/HomeLatestTimeline"
