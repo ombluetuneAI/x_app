@@ -1102,7 +1102,7 @@ function initPhotoSwipe(startIndex) {
         clickToCloseNonZoomable: false,
     });
     
-    // Handle video content
+    // Handle video content - create iframe without src, will be set when activated
     pswp.on('contentLoad', (e) => {
         const { content } = e;
         if (content.data.isVideo) {
@@ -1110,7 +1110,7 @@ function initPhotoSwipe(startIndex) {
             const container = document.createElement('div');
             container.className = 'pswp-video-container';
             const iframe = document.createElement('iframe');
-            iframe.src = content.data.videoUrl;
+            iframe.dataset.videoSrc = content.data.videoUrl;
             iframe.allow = 'autoplay';
             iframe.allowFullscreen = true;
             container.appendChild(iframe);
@@ -1119,18 +1119,30 @@ function initPhotoSwipe(startIndex) {
         }
     });
     
-    // Stop video when navigating away & preload more media
-    pswp.on('slideChange', () => {
-        // Stop all iframes except current
-        if (pswp && pswp.element) {
-            pswp.element.querySelectorAll('.pswp-video-container iframe').forEach(iframe => {
-                const slide = iframe.closest('.pswp__slide');
-                if (slide && !slide.classList.contains('pswp__slide--active')) {
-                    iframe.src = iframe.src;
-                }
-            });
+    // Play video when slide becomes active
+    pswp.on('contentActivate', (e) => {
+        const { content } = e;
+        if (content.element) {
+            const iframe = content.element.querySelector('iframe');
+            if (iframe && iframe.dataset.videoSrc) {
+                iframe.src = iframe.dataset.videoSrc;
+            }
         }
-        
+    });
+    
+    // Pause video when slide is no longer active
+    pswp.on('contentDeactivate', (e) => {
+        const { content } = e;
+        if (content.element) {
+            const iframe = content.element.querySelector('iframe');
+            if (iframe) {
+                iframe.src = '';
+            }
+        }
+    });
+    
+    // Preload more media & preload more media
+    pswp.on('slideChange', () => {
         // Preload more media if near the end (profile media grid only)
         if (!isTweetLightbox && allMedia.length - pswp.currIndex <= 3 && hasMoreMedia && !isLoadingMedia && currentUser) {
             loadUserMedia(currentUser.screen_name, mediaCursor);
@@ -1143,6 +1155,12 @@ function initPhotoSwipe(startIndex) {
     });
     
     pswp.on('close', () => {
+        // Stop all videos
+        if (pswp && pswp.element) {
+            pswp.element.querySelectorAll('.pswp-video-container iframe').forEach(iframe => {
+                iframe.src = '';
+            });
+        }
         isLightboxOpen = false;
         if (!isLightboxClosingFromPopstate && history.state && history.state.lightbox) {
             history.back();
