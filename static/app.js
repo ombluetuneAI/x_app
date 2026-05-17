@@ -860,7 +860,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
         return `
             <div class="tweet-nested-card">
                 ${renderTweetHeader(qName, qHandle, qAvatar, nestedTweet.created_at)}
-                <div class="tweet-text">${escapeHtml(nestedTweet.text)}</div>
+                <div class="tweet-text">${linkifyText(nestedTweet.text)}</div>
                 ${translateBtnHtml(nestedTweet.id)}
                 ${renderTweetMedia(nestedTweet.media, nestedTweet.id)}
             </div>
@@ -912,7 +912,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
             return `
                 <div class="tweet-item">
                     ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
-                    ${quoteText ? `<div class="tweet-text">${escapeHtml(quoteText)}</div>` : ''}
+                    ${quoteText ? `<div class="tweet-text">${linkifyText(quoteText)}</div>` : ''}
                     ${translateBtnHtml(tweet.id)}
                     ${renderTweetMedia(tweet.media, tweet.id)}
                     ${renderNestedCard(quotedTweet)}
@@ -925,7 +925,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
         return `
             <div class="tweet-item">
                 ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
-                <div class="tweet-text">${escapeHtml(tweet.text)}</div>
+                <div class="tweet-text">${linkifyText(tweet.text)}</div>
                 ${translateBtnHtml(tweet.id)}
                 ${renderTweetMedia(tweet.media, tweet.id)}
                 ${renderTweetStats(tweet.stats)}
@@ -1395,6 +1395,16 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Escape HTML and convert URLs to clickable links
+ */
+function linkifyText(text) {
+    if (!text) return '';
+    const escaped = escapeHtml(text);
+    const urlPattern = /(https?:\/\/[^\s<]+)/g;
+    return escaped.replace(urlPattern, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 
 // Translation functions are in translate.js

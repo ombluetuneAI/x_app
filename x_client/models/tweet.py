@@ -272,6 +272,53 @@ class Tweet:
                 note_text = note_result.get("text", "")
                 if note_text:
                     tweet_text = note_text
+
+        # Expand t.co short URLs using entities.urls mapping
+        # entities.urls contains: url (t.co), expanded_url (real URL), display_url, indices
+        entities = legacy.get("entities", {})
+        url_entities = entities.get("urls", [])
+        
+        # For note_tweet, also get its URL entities
+        note_url_entities = []
+        if note_tweet:
+            note_results = note_tweet.get("note_tweet_results", {})
+            note_result_data = note_results.get("result", {})
+            if isinstance(note_result_data, dict):
+                note_ents = note_result_data.get("entity_set", {})
+                if not note_ents:
+                    note_ents = note_result_data.get("entities", {})
+                note_url_entities = note_ents.get("urls", [])
+        
+        # Use note_tweet URL entities if text came from note_tweet
+        if note_url_entities and note_text:
+            url_entities = note_url_entities
+        
+        if url_entities:
+            # Sort by indices in reverse order to avoid offset shifting
+            sorted_urls = sorted(
+                [u for u in url_entities if u.get("indices")],
+                key=lambda u: u["indices"][0],
+                reverse=True
+            )
+            for url_ent in sorted_urls:
+                expanded = url_ent.get("expanded_url", "")
+                if expanded:
+                    start, end = url_ent["indices"]
+                    if start < len(tweet_text) and end <= len(tweet_text):
+                        tweet_text = tweet_text[:start] + expanded + tweet_text[end:]
+        
+        # Remove trailing media t.co URLs (images/videos already shown separately)
+        media_entities = entities.get("media", [])
+        if media_entities:
+            for m in reversed(media_entities):
+                indices = m.get("indices")
+                if indices:
+                    start, end = indices
+                    # Remove the media URL and any preceding whitespace
+                    if start > 0 and tweet_text[start - 1:start] == ' ':
+                        start -= 1
+                    tweet_text = tweet_text[:start] + tweet_text[end:]
+            tweet_text = tweet_text.rstrip()
         
         if retweeted_tweet and tweet_text.startswith("RT @"):
             # Keep original text but we'll show retweeted tweet content in UI

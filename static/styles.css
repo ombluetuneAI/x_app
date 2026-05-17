@@ -456,6 +456,16 @@ html, body {
     word-wrap: break-word;
 }
 
+.tweet-text a {
+    color: var(--accent-color, #1d9bf0);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.tweet-text a:hover {
+    text-decoration: underline;
+}
+
 .tweet-media {
     margin-bottom: 8px;
     border-radius: 16px;
