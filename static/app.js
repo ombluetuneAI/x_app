@@ -35,6 +35,70 @@ function saveProxySettings(settings) {
     localStorage.setItem('proxy_settings', JSON.stringify(settings));
 }
 
+/**
+ * Export all settings to x_config.json for local backup
+ */
+function exportSettings() {
+    const data = {
+        proxy_settings: getProxySettings(),
+        niutrans_appid: localStorage.getItem('niutrans_appid') || '',
+        niutrans_apikey: localStorage.getItem('niutrans_apikey') || '',
+    };
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'x_config.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('设置已导出为 x_config.json', 'success', 2000);
+}
+
+/**
+ * Import settings from a local x_config.json file
+ */
+function importSettings() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const data = JSON.parse(ev.target.result);
+                if (data.proxy_settings) {
+                    saveProxySettings({ ...DEFAULT_PROXY_SETTINGS, ...data.proxy_settings });
+                }
+                if (data.niutrans_appid !== undefined) {
+                    localStorage.setItem('niutrans_appid', data.niutrans_appid);
+                }
+                if (data.niutrans_apikey !== undefined) {
+                    localStorage.setItem('niutrans_apikey', data.niutrans_apikey);
+                }
+                // Refresh settings UI if modal is open
+                if (!document.getElementById('settingsModal').classList.contains('hidden')) {
+                    openSettings();
+                }
+                showToast('设置已导入', 'success', 2000);
+            } catch (err) {
+                showToast('导入失败：文件格式错误', 'error', 3000);
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+/**
+ * Check if any user settings exist in localStorage
+ */
+function hasLocalSettings() {
+    return !!localStorage.getItem('proxy_settings') || !!localStorage.getItem('niutrans_appid') || !!localStorage.getItem('niutrans_apikey');
+}
+
 function proxyUrl(url, isVideo = false) {
     if (!url) return '';
     const settings = getProxySettings();
