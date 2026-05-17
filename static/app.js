@@ -4,14 +4,129 @@
 
 const API_BASE = '';
 
-const IMAGE_PROXY_PREFIX = 'https://pz.v88.qzz.io?url=';
+/**
+ * Proxy settings with defaults
+ * Stored in localStorage as JSON
+ */
+const DEFAULT_PROXY_SETTINGS = {
+    imageEnabled: true,
+    imageProxies: [
+        'https://still-glitter-af7b.1571314213.workers.dev?url=',
+        'https://pz.v88.qzz.io?url='
+    ],
+    imageProxyIndex: 1,
+    videoEnabled: false,
+    videoProxies: [
+        'https://still-glitter-af7b.1571314213.workers.dev?url=',
+        'https://pz.v88.qzz.io?url='
+    ],
+    videoProxyIndex: 1,
+};
+
+function getProxySettings() {
+    try {
+        const saved = localStorage.getItem('proxy_settings');
+        if (saved) return { ...DEFAULT_PROXY_SETTINGS, ...JSON.parse(saved) };
+    } catch (e) {}
+    return { ...DEFAULT_PROXY_SETTINGS };
+}
+
+function saveProxySettings(settings) {
+    localStorage.setItem('proxy_settings', JSON.stringify(settings));
+}
 
 function proxyUrl(url, isVideo = false) {
     if (!url) return '';
-    // Images use external image proxy
-    if (!isVideo) return IMAGE_PROXY_PREFIX + encodeURIComponent(url);
-    // Videos open directly (iframe handles no-referrer via meta tag)
-    return url;
+    const settings = getProxySettings();
+    if (isVideo) {
+        if (!settings.videoEnabled) return url;
+        const prefix = settings.videoProxies[settings.videoProxyIndex] || settings.videoProxies[0];
+        return prefix ? prefix + encodeURIComponent(url) : url;
+    } else {
+        if (!settings.imageEnabled) return url;
+        const prefix = settings.imageProxies[settings.imageProxyIndex] || settings.imageProxies[0];
+        return prefix ? prefix + encodeURIComponent(url) : url;
+    }
+}
+
+/**
+ * Render proxy list as radio buttons
+ */
+function renderProxyList(containerId, proxies, selectedIndex) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = proxies.map((proxy, i) => `
+        <div class="proxy-item">
+            <label class="proxy-radio">
+                <input type="radio" name="${containerId}" value="${i}" ${i === selectedIndex ? 'checked' : ''}>
+                <span class="proxy-url" title="${proxy}">${proxy}</span>
+            </label>
+            <button class="proxy-delete-btn" onclick="removeProxy('${containerId}', ${i})" title="删除">×</button>
+        </div>
+    `).join('');
+}
+
+/**
+ * Add an image proxy
+ */
+function addImageProxy() {
+    const input = document.getElementById('newImageProxy');
+    const url = input.value.trim();
+    if (!url) return;
+    const settings = getProxySettings();
+    if (settings.imageProxies.includes(url)) {
+        showToast('该代理已存在', 'error', 2000);
+        return;
+    }
+    settings.imageProxies.push(url);
+    settings.imageProxyIndex = settings.imageProxies.length - 1;
+    saveProxySettings(settings);
+    input.value = '';
+    renderProxyList('imageProxyList', settings.imageProxies, settings.imageProxyIndex);
+    showToast('图片代理已添加', 'success', 2000);
+}
+
+/**
+ * Add a video proxy
+ */
+function addVideoProxy() {
+    const input = document.getElementById('newVideoProxy');
+    const url = input.value.trim();
+    if (!url) return;
+    const settings = getProxySettings();
+    if (settings.videoProxies.includes(url)) {
+        showToast('该代理已存在', 'error', 2000);
+        return;
+    }
+    settings.videoProxies.push(url);
+    settings.videoProxyIndex = settings.videoProxies.length - 1;
+    saveProxySettings(settings);
+    input.value = '';
+    renderProxyList('videoProxyList', settings.videoProxies, settings.videoProxyIndex);
+    showToast('视频代理已添加', 'success', 2000);
+}
+
+/**
+ * Remove a proxy from the list
+ */
+function removeProxy(containerId, index) {
+    const settings = getProxySettings();
+    const isImage = containerId === 'imageProxyList';
+    const proxies = isImage ? settings.imageProxies : settings.videoProxies;
+    if (proxies.length <= 1) {
+        showToast('至少保留一个代理', 'error', 2000);
+        return;
+    }
+    proxies.splice(index, 1);
+    if (isImage) {
+        settings.imageProxies = proxies;
+        if (settings.imageProxyIndex >= proxies.length) settings.imageProxyIndex = 0;
+    } else {
+        settings.videoProxies = proxies;
+        if (settings.videoProxyIndex >= proxies.length) settings.videoProxyIndex = 0;
+    }
+    saveProxySettings(settings);
+    renderProxyList(containerId, isImage ? settings.imageProxies : settings.videoProxies,
+        isImage ? settings.imageProxyIndex : settings.videoProxyIndex);
 }
 
 /**
@@ -895,7 +1010,7 @@ function mediaToPswpItem(m) {
         w: m.width || 0,
         h: m.height || 0,
         isVideo,
-        videoUrl: isVideo ? (m.video_url || m.url) : null,
+        videoUrl: isVideo ? proxyUrl(m.video_url || m.url, true) : null,
     };
 }
 

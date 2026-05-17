@@ -147,6 +147,55 @@
                 </button>
             </div>
             <div class="settings-body">
+                <!-- Image Proxy Section -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <h3>图片代理</h3>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="imageProxyEnabled" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <p class="settings-desc">通过代理加载图片，关闭后直连原图</p>
+                    <div class="settings-field">
+                        <label>选择代理</label>
+                        <div id="imageProxyList" class="proxy-list"></div>
+                    </div>
+                    <div class="settings-field">
+                        <label>添加代理</label>
+                        <div class="proxy-add-row">
+                            <input type="text" id="newImageProxy" placeholder="https://example.com?url=" autocomplete="off">
+                            <button class="proxy-add-btn" onclick="addImageProxy()">添加</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video Proxy Section -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <h3>视频代理</h3>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="videoProxyEnabled">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <p class="settings-desc">通过代理加载视频，默认关闭直连播放</p>
+                    <div class="settings-field">
+                        <label>选择代理</label>
+                        <div id="videoProxyList" class="proxy-list"></div>
+                    </div>
+                    <div class="settings-field">
+                        <label>添加代理</label>
+                        <div class="proxy-add-row">
+                            <input type="text" id="newVideoProxy" placeholder="https://example.com?url=" autocomplete="off">
+                            <button class="proxy-add-btn" onclick="addVideoProxy()">添加</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-divider"></div>
+
+                <!-- Translation API Section -->
                 <div class="settings-section">
                     <h3>小牛翻译 API</h3>
                     <p class="settings-desc">用于推文翻译功能，密钥仅保存在本地浏览器中</p>

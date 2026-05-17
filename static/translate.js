@@ -161,6 +161,14 @@ function openSettings() {
     const { appid, apikey } = getNiuTransCredentials();
     document.getElementById('niutransAppId').value = appid;
     document.getElementById('niutransApiKey').value = apikey;
+
+    // Load proxy settings (functions defined in app.js)
+    const settings = getProxySettings();
+    document.getElementById('imageProxyEnabled').checked = settings.imageEnabled;
+    document.getElementById('videoProxyEnabled').checked = settings.videoEnabled;
+    renderProxyList('imageProxyList', settings.imageProxies, settings.imageProxyIndex);
+    renderProxyList('videoProxyList', settings.videoProxies, settings.videoProxyIndex);
+
     document.getElementById('settingsModal').classList.remove('hidden');
 }
 
@@ -179,9 +187,22 @@ function saveSettings() {
     const apikey = document.getElementById('niutransApiKey').value.trim();
     localStorage.setItem('niutrans_appid', appid);
     localStorage.setItem('niutrans_apikey', apikey);
+
+    // Save proxy settings (functions defined in app.js)
+    const settings = getProxySettings();
+    settings.imageEnabled = document.getElementById('imageProxyEnabled').checked;
+    settings.videoEnabled = document.getElementById('videoProxyEnabled').checked;
+
+    const imageRadio = document.querySelector('input[name="imageProxyList"]:checked');
+    if (imageRadio) settings.imageProxyIndex = parseInt(imageRadio.value);
+    const videoRadio = document.querySelector('input[name="videoProxyList"]:checked');
+    if (videoRadio) settings.videoProxyIndex = parseInt(videoRadio.value);
+
+    saveProxySettings(settings);
+
     closeSettings();
     if (typeof showToast === 'function') {
-        showToast(appid && apikey ? '翻译设置已保存' : '密钥已清除', 'success', 2000);
+        showToast('设置已保存', 'success', 2000);
     }
 }
 
