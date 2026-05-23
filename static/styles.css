@@ -24,6 +24,12 @@ html, body {
     color: var(--text-primary);
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
+    /* Prevent browser back/forward gesture on Android edge swipe */
+    overscroll-behavior: none;
+    overscroll-behavior-x: none;
+    /* Prevent pull-to-refresh and other browser gestures */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 #app {
@@ -1029,6 +1035,18 @@ html, body {
 /* PhotoSwipe Customization */
 .pswp {
     overscroll-behavior: none !important;
+    /* Prevent horizontal overscroll from triggering browser back/forward on Android */
+    overscroll-behavior-x: contain !important;
+    overscroll-behavior-y: contain !important;
+    /* Ensure touch events inside the lightbox are fully captured */
+    touch-action: none;
+}
+
+/* Ensure the PhotoSwipe scroll wrapper also blocks browser gestures */
+.pswp__scroll-wrap {
+    overscroll-behavior: none !important;
+    overscroll-behavior-x: contain !important;
+    overscroll-behavior-y: contain !important;
 }
 
 .pswp__button--arrow--prev,

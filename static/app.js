@@ -256,6 +256,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const screenName = params.get('user');
     const view = params.get('view') || 'home';
     
+    // Push an initial safe anchor state to prevent Android edge-swipe from
+    // closing the page when the history stack is shallow (e.g., direct access).
+    // This ensures there's always at least one history entry to fall back to.
+    if (!history.state || !history.state._anchor) {
+        history.replaceState({ _anchor: true, view: 'home' }, '', window.location.href);
+    }
+    
     // Load appropriate view based on URL
     if (view === 'following' && screenName) {
         showFollowing(screenName);
@@ -1180,8 +1187,15 @@ function initPhotoSwipe(startIndex) {
             });
         }
         isLightboxOpen = false;
+        // Only pop history if the close was user-initiated (not triggered by
+        // browser back/popstate). On Android, edge-swipe triggers popstate which
+        // already consumed the history entry, so we must not call history.back().
         if (!isLightboxClosingFromPopstate && history.state && history.state.lightbox) {
-            history.back();
+            try {
+                history.back();
+            } catch (e) {
+                // Ignore errors from rapid back navigation
+            }
         }
         isLightboxClosingFromPopstate = false;
         pswp = null;
@@ -1606,10 +1620,14 @@ function linkifyText(text) {
 
 // Handle browser back/forward button
 window.addEventListener('popstate', (event) => {
-    // If lightbox is open, close it instead of navigating away
+    // If lightbox is open, close it instead of navigating away.
+    // This catches Android edge-swipe gesture, which fires popstate.
     if (isLightboxOpen && pswp) {
         isLightboxClosingFromPopstate = true;
         pswp.close();
+        // Push a fresh anchor state to prevent a second edge-swipe from
+        // navigating away from the page entirely.
+        history.pushState({ _anchor: true, lightboxClosed: true }, '', window.location.href);
         return;
     }
     
