@@ -725,13 +725,14 @@ function renderProfile(data) {
     loadedMediaIds = new Set();
     (allMedia || []).forEach(m => { if (m.tweet_id) loadedMediaIds.add(m.tweet_id); });
     
-    // Update URL without reload (only if not already on a specific view)
+    // Sync URL/state without adding a history entry. Callers that need a new
+    // stack entry (e.g. navigateToProfile) already pushState before load.
     const currentParams = new URLSearchParams(window.location.search);
     if (currentParams.get('view') !== 'following') {
         const url = new URL(window.location);
         url.searchParams.set('user', user.screen_name);
         url.searchParams.delete('view');
-        window.history.pushState({ view: 'profile', user: user.screen_name }, '', url);
+        window.history.replaceState({ view: 'profile', user: user.screen_name }, '', url);
     }
     
     // Banner
@@ -1127,18 +1128,22 @@ function initPhotoSwipe(startIndex) {
         clickToCloseNonZoomable: false,
     });
     
-    // Handle video content - create iframe without src, will be set when activated
+    // Use <video> (not iframe) so playback cannot push extra history entries
+    // that force users to swipe-back many times to leave the page.
     pswp.on('contentLoad', (e) => {
         const { content } = e;
         if (content.data.isVideo) {
             e.preventDefault();
             const container = document.createElement('div');
             container.className = 'pswp-video-container';
-            const iframe = document.createElement('iframe');
-            iframe.dataset.videoSrc = content.data.videoUrl;
-            iframe.allow = 'autoplay';
-            iframe.allowFullscreen = true;
-            container.appendChild(iframe);
+            const video = document.createElement('video');
+            video.dataset.videoSrc = content.data.videoUrl;
+            video.controls = true;
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.preload = 'metadata';
+            container.appendChild(video);
             content.element = container;
             content.onLoaded();
         }
@@ -1148,9 +1153,10 @@ function initPhotoSwipe(startIndex) {
     pswp.on('contentActivate', (e) => {
         const { content } = e;
         if (content.element) {
-            const iframe = content.element.querySelector('iframe');
-            if (iframe && iframe.dataset.videoSrc) {
-                iframe.src = iframe.dataset.videoSrc;
+            const video = content.element.querySelector('video');
+            if (video && video.dataset.videoSrc && !video.src) {
+                video.src = video.dataset.videoSrc;
+                video.play().catch(() => {});
             }
         }
     });
@@ -1159,9 +1165,11 @@ function initPhotoSwipe(startIndex) {
     pswp.on('contentDeactivate', (e) => {
         const { content } = e;
         if (content.element) {
-            const iframe = content.element.querySelector('iframe');
-            if (iframe) {
-                iframe.src = '';
+            const video = content.element.querySelector('video');
+            if (video) {
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
             }
         }
     });
@@ -1182,8 +1190,10 @@ function initPhotoSwipe(startIndex) {
     pswp.on('close', () => {
         // Stop all videos
         if (pswp && pswp.element) {
-            pswp.element.querySelectorAll('.pswp-video-container iframe').forEach(iframe => {
-                iframe.src = '';
+            pswp.element.querySelectorAll('.pswp-video-container video').forEach(video => {
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
             });
         }
         isLightboxOpen = false;
@@ -1556,23 +1566,15 @@ async function toggleFollowInList(userId, isFollowing, button) {
 }
 
 /**
- * Go back to previous view
+ * Go back to previous view via history so the stack stays consistent with
+ * edge-swipe / browser back. popstate handler updates the UI.
  */
 function goBack() {
-    followingView.classList.add('hidden');
-    followersView.classList.add('hidden');
-    profileView.classList.add('hidden');
-    homeView.classList.remove('hidden');
-    
-    // Update URL
-    const url = new URL(window.location);
-    url.searchParams.delete('user');
-    url.searchParams.delete('view');
-    window.history.pushState({ view: 'home' }, '', url);
-    
-    headerTitle.textContent = 'Home';
-    backBtn.classList.add('hidden');
-    currentView = 'home';
+    if (isLightboxOpen && pswp) {
+        pswp.close();
+        return;
+    }
+    window.history.back();
 }
 
 /**
@@ -1622,12 +1624,11 @@ function linkifyText(text) {
 window.addEventListener('popstate', (event) => {
     // If lightbox is open, close it instead of navigating away.
     // This catches Android edge-swipe gesture, which fires popstate.
+    // Do NOT pushState here — that left ghost entries so users had to
+    // swipe back many times to leave the profile page.
     if (isLightboxOpen && pswp) {
         isLightboxClosingFromPopstate = true;
         pswp.close();
-        // Push a fresh anchor state to prevent a second edge-swipe from
-        // navigating away from the page entirely.
-        history.pushState({ _anchor: true, lightboxClosed: true }, '', window.location.href);
         return;
     }
     
