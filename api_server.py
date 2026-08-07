@@ -115,8 +115,13 @@ def get_user_following(screen_name):
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
         
-        count = request.args.get('count', 100, type=int)
-        following = client.user.get_following(user.id, count=count, max_pages=1)
+        count = request.args.get('count', 50, type=int)
+        cursor = request.args.get('cursor', '')
+        following, next_cursor = client.user.get_following_page(
+            user.id,
+            count=count,
+            cursor=cursor
+        )
         
         users = [u.to_dict() for u in following]
         
@@ -124,7 +129,8 @@ def get_user_following(screen_name):
             "success": True,
             "data": {
                 "user": user.to_dict(),
-                "following": users
+                "following": users,
+                "cursor": next_cursor
             }
         })
     except Exception as e:
@@ -140,8 +146,13 @@ def get_user_followers(screen_name):
         if not user:
             return jsonify({"success": False, "error": "User not found"}), 404
         
-        count = request.args.get('count', 100, type=int)
-        followers = client.user.get_followers(user.id, count=count, max_pages=1)
+        count = request.args.get('count', 50, type=int)
+        cursor = request.args.get('cursor', '')
+        followers, next_cursor = client.user.get_followers_page(
+            user.id,
+            count=count,
+            cursor=cursor
+        )
         
         users = [u.to_dict() for u in followers]
         
@@ -149,7 +160,8 @@ def get_user_followers(screen_name):
             "success": True,
             "data": {
                 "user": user.to_dict(),
-                "followers": users
+                "followers": users,
+                "cursor": next_cursor
             }
         })
     except Exception as e:

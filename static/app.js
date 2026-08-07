@@ -226,6 +226,18 @@ let hasMoreHome = true;
 let mediaCursor = '';
 let followingCache = {};
 let followersCache = {};
+let followingScreenName = '';
+let followingCursor = '';
+let allFollowingUsers = [];
+let isLoadingFollowing = false;
+let hasMoreFollowing = true;
+let loadedFollowingIds = new Set();
+let followersScreenName = '';
+let followersCursor = '';
+let allFollowersUsers = [];
+let isLoadingFollowers = false;
+let hasMoreFollowers = true;
+let loadedFollowersIds = new Set();
 let tweetsCursor = '';
 let allTweets = [];
 let allMedia = [];
@@ -650,36 +662,7 @@ async function loadUserMedia(screenName, cursor = '') {
 function setupInfiniteScroll() {
     let lastTriggerTime = 0;
     
-    const handleScroll = () => {
-        // Home feed scroll
-        if (currentView === 'home') {
-            if (!hasMoreHome || isLoadingHome) return;
-            const scrollTop = window.scrollY || document.documentElement.scrollTop;
-            const windowHeight = window.innerHeight;
-            const docHeight = Math.max(
-                document.body.scrollHeight,
-                document.documentElement.scrollHeight,
-                document.body.offsetHeight,
-                document.documentElement.offsetHeight
-            );
-            const distanceToBottom = docHeight - (scrollTop + windowHeight);
-            const now = Date.now();
-            if (now - lastTriggerTime < 1000) return;
-            if (distanceToBottom < 1000 && distanceToBottom > -100 && homeCursor) {
-                lastTriggerTime = now;
-                console.log('Trigger load more home feed, cursor:', homeCursor);
-                loadHomeTimeline(homeCursor);
-            }
-            return;
-        }
-        
-        const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
-        const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
-        const cursor = currentTab === 'media' ? mediaCursor : tweetsCursor;
-        
-        // Skip if no more data or already loading
-        if (!hasMore || loading) return;
-        
+    const getScrollMetrics = () => {
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
         const windowHeight = window.innerHeight;
         const docHeight = Math.max(
@@ -688,14 +671,58 @@ function setupInfiniteScroll() {
             document.body.offsetHeight,
             document.documentElement.offsetHeight
         );
-        
-        // Trigger when within 1000px of bottom
-        const threshold = 1000;
+        return { scrollTop, windowHeight, docHeight };
+    };
+    
+    const handleScroll = () => {
+        const { scrollTop, windowHeight, docHeight } = getScrollMetrics();
         const distanceToBottom = docHeight - (scrollTop + windowHeight);
-        
-        // Debounce: only trigger once per second
+        const threshold = 1000;
         const now = Date.now();
         if (now - lastTriggerTime < 1000) return;
+        
+        // Home feed scroll
+        if (currentView === 'home') {
+            if (!hasMoreHome || isLoadingHome) return;
+            if (distanceToBottom < threshold && distanceToBottom > -100 && homeCursor) {
+                lastTriggerTime = now;
+                console.log('Trigger load more home feed, cursor:', homeCursor);
+                loadHomeTimeline(homeCursor);
+            }
+            return;
+        }
+        
+        // Following list scroll
+        if (currentView === 'following') {
+            if (!hasMoreFollowing || isLoadingFollowing) return;
+            if (distanceToBottom < threshold && distanceToBottom > -100 && followingCursor) {
+                lastTriggerTime = now;
+                console.log('Trigger load more following, cursor:', followingCursor);
+                loadFollowing(followingScreenName, followingCursor);
+            }
+            return;
+        }
+        
+        // Followers list scroll
+        if (currentView === 'followers') {
+            if (!hasMoreFollowers || isLoadingFollowers) return;
+            if (distanceToBottom < threshold && distanceToBottom > -100 && followersCursor) {
+                lastTriggerTime = now;
+                console.log('Trigger load more followers, cursor:', followersCursor);
+                loadFollowers(followersScreenName, followersCursor);
+            }
+            return;
+        }
+        
+        const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
+        const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
+        const cursor = currentTab === 'media' ? mediaCursor : tweetsCursor;
+        
+        // Profile tabs (posts / media)
+        if (currentView !== 'profile') return;
+        
+        // Skip if no more data or already loading
+        if (!hasMore || loading) return;
         
         if (distanceToBottom < threshold && distanceToBottom > -100 && cursor) {
             lastTriggerTime = now;
@@ -710,6 +737,7 @@ function setupInfiniteScroll() {
     };
     
     window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('wheel', handleScroll, { passive: true });
 }
 
 /**
@@ -1313,34 +1341,24 @@ async function showFollowing(screenName) {
         profileView.classList.add('hidden');
         
         document.getElementById('followingTitle').textContent = `People @${screenName} follows`;
+        followingScreenName = screenName;
         
         // Check cache first
         if (followingCache[screenName]) {
-            renderFollowingList(followingCache[screenName].data);
-            currentUser = followingCache[screenName].user;
+            const cached = followingCache[screenName];
+            allFollowingUsers = cached.data || [];
+            followingCursor = cached.cursor || '';
+            hasMoreFollowing = cached.hasMore ?? !!followingCursor;
+            loadedFollowingIds = new Set(allFollowingUsers.map(u => u.id));
+            renderFollowingList(allFollowingUsers, true);
+            currentUser = cached.user;
             headerTitle.textContent = 'Following';
             backBtn.classList.remove('hidden');
             currentView = 'following';
             return;
         }
         
-        document.getElementById('followingList').innerHTML = '<div class="loading">Loading following...</div>';
-        
-        const response = await fetch(`${API_BASE}/api/user/${screenName}/following`);
-        const result = await response.json();
-        
-        if (result.success) {
-            // Cache the data
-            followingCache[screenName] = {
-                data: result.data.following,
-                user: result.data.user
-            };
-            renderFollowingList(result.data.following);
-            // Store the user whose following we're viewing
-            currentUser = result.data.user;
-        } else {
-            document.getElementById('followingList').innerHTML = `<div class="error">${result.error}</div>`;
-        }
+        await loadFollowing(screenName);
         
         headerTitle.textContent = 'Following';
         backBtn.classList.remove('hidden');
@@ -1353,17 +1371,75 @@ async function showFollowing(screenName) {
 }
 
 /**
- * Render following list
+ * Load following list (with pagination)
  */
-function renderFollowingList(users) {
-    const list = document.getElementById('followingList');
+async function loadFollowing(screenName, cursor = '') {
+    if (isLoadingFollowing) return;
+    isLoadingFollowing = true;
     
-    if (!users || users.length === 0) {
-        list.innerHTML = '<div class="loading">Not following anyone</div>';
-        return;
+    try {
+        if (!cursor) {
+            document.getElementById('followingList').innerHTML = '<div class="loading">Loading following...</div>';
+            allFollowingUsers = [];
+            loadedFollowingIds = new Set();
+            hasMoreFollowing = true;
+            followingScreenName = screenName;
+        }
+        
+        let url = `${API_BASE}/api/user/${screenName}/following?count=50`;
+        if (cursor) {
+            url += `&cursor=${encodeURIComponent(cursor)}`;
+        }
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.success) {
+            const users = result.data.following || [];
+            const nextCursor = result.data.cursor || '';
+            
+            const newUsers = users.filter(u => !loadedFollowingIds.has(u.id));
+            newUsers.forEach(u => loadedFollowingIds.add(u.id));
+            
+            if (!cursor) {
+                allFollowingUsers = newUsers;
+                renderFollowingList(newUsers, true);
+                currentUser = result.data.user;
+            } else if (newUsers.length > 0) {
+                allFollowingUsers = allFollowingUsers.concat(newUsers);
+                renderFollowingList(newUsers, false);
+            }
+            
+            followingCursor = nextCursor;
+            hasMoreFollowing = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|') && newUsers.length > 0;
+            
+            followingCache[screenName] = {
+                data: [...allFollowingUsers],
+                user: result.data.user,
+                cursor: followingCursor,
+                hasMore: hasMoreFollowing
+            };
+        } else {
+            if (!cursor) {
+                document.getElementById('followingList').innerHTML = `<div class="error">${result.error}</div>`;
+            }
+            hasMoreFollowing = false;
+        }
+    } catch (error) {
+        console.error('Error loading following:', error);
+        if (!cursor) {
+            document.getElementById('followingList').innerHTML = '<div class="error">Failed to load following list</div>';
+        }
+    } finally {
+        isLoadingFollowing = false;
     }
-    
-    list.innerHTML = users.map(user => `
+}
+
+/**
+ * Build HTML for a single following/followers list item
+ */
+function renderFollowingUserItem(user) {
+    return `
         <div class="following-item">
             <img class="avatar" src="${proxyUrl(user.profile_image_url)}" alt="" onclick="navigateToProfile('${user.screen_name}')">
             <div class="info" onclick="navigateToProfile('${user.screen_name}')">
@@ -1379,7 +1455,32 @@ function renderFollowingList(users) {
                 ${user.following ? 'Following' : 'Follow'}
             </button>
         </div>
-    `).join('');
+    `;
+}
+
+/**
+ * Render following list
+ */
+function renderFollowingList(users, replace = true) {
+    const list = document.getElementById('followingList');
+    
+    if (!users || users.length === 0) {
+        if (replace) list.innerHTML = '<div class="loading">Not following anyone</div>';
+        return;
+    }
+    
+    const html = users.map(renderFollowingUserItem).join('');
+    
+    if (replace) {
+        list.innerHTML = html;
+    } else {
+        const existingItems = list.querySelectorAll('.following-item');
+        if (existingItems.length === 0) {
+            list.innerHTML = html;
+        } else {
+            list.insertAdjacentHTML('beforeend', html);
+        }
+    }
 }
 
 /**
@@ -1405,34 +1506,24 @@ async function showFollowers(screenName) {
         profileView.classList.add('hidden');
         
         document.getElementById('followersTitle').textContent = `Followers of @${screenName}`;
+        followersScreenName = screenName;
         
         // Check cache first
         if (followersCache[screenName]) {
-            renderFollowersList(followersCache[screenName].data);
-            currentUser = followersCache[screenName].user;
+            const cached = followersCache[screenName];
+            allFollowersUsers = cached.data || [];
+            followersCursor = cached.cursor || '';
+            hasMoreFollowers = cached.hasMore ?? !!followersCursor;
+            loadedFollowersIds = new Set(allFollowersUsers.map(u => u.id));
+            renderFollowersList(allFollowersUsers, true);
+            currentUser = cached.user;
             headerTitle.textContent = 'Followers';
             backBtn.classList.remove('hidden');
             currentView = 'followers';
             return;
         }
         
-        document.getElementById('followersList').innerHTML = '<div class="loading">Loading followers...</div>';
-        
-        const response = await fetch(`${API_BASE}/api/user/${screenName}/followers`);
-        const result = await response.json();
-        
-        if (result.success) {
-            // Cache the data
-            followersCache[screenName] = {
-                data: result.data.followers,
-                user: result.data.user
-            };
-            renderFollowersList(result.data.followers);
-            // Store the user whose followers we're viewing
-            currentUser = result.data.user;
-        } else {
-            document.getElementById('followersList').innerHTML = `<div class="error">${result.error}</div>`;
-        }
+        await loadFollowers(screenName);
         
         headerTitle.textContent = 'Followers';
         backBtn.classList.remove('hidden');
@@ -1445,33 +1536,93 @@ async function showFollowers(screenName) {
 }
 
 /**
+ * Load followers list (with pagination)
+ */
+async function loadFollowers(screenName, cursor = '') {
+    if (isLoadingFollowers) return;
+    isLoadingFollowers = true;
+    
+    try {
+        if (!cursor) {
+            document.getElementById('followersList').innerHTML = '<div class="loading">Loading followers...</div>';
+            allFollowersUsers = [];
+            loadedFollowersIds = new Set();
+            hasMoreFollowers = true;
+            followersScreenName = screenName;
+        }
+        
+        let url = `${API_BASE}/api/user/${screenName}/followers?count=50`;
+        if (cursor) {
+            url += `&cursor=${encodeURIComponent(cursor)}`;
+        }
+        
+        const response = await fetch(url);
+        const result = await response.json();
+        
+        if (result.success) {
+            const users = result.data.followers || [];
+            const nextCursor = result.data.cursor || '';
+            
+            const newUsers = users.filter(u => !loadedFollowersIds.has(u.id));
+            newUsers.forEach(u => loadedFollowersIds.add(u.id));
+            
+            if (!cursor) {
+                allFollowersUsers = newUsers;
+                renderFollowersList(newUsers, true);
+                currentUser = result.data.user;
+            } else if (newUsers.length > 0) {
+                allFollowersUsers = allFollowersUsers.concat(newUsers);
+                renderFollowersList(newUsers, false);
+            }
+            
+            followersCursor = nextCursor;
+            hasMoreFollowers = nextCursor && nextCursor !== '0' && newUsers.length > 0;
+            
+            followersCache[screenName] = {
+                data: [...allFollowersUsers],
+                user: result.data.user,
+                cursor: followersCursor,
+                hasMore: hasMoreFollowers
+            };
+        } else {
+            if (!cursor) {
+                document.getElementById('followersList').innerHTML = `<div class="error">${result.error}</div>`;
+            }
+            hasMoreFollowers = false;
+        }
+    } catch (error) {
+        console.error('Error loading followers:', error);
+        if (!cursor) {
+            document.getElementById('followersList').innerHTML = '<div class="error">Failed to load followers list</div>';
+        }
+    } finally {
+        isLoadingFollowers = false;
+    }
+}
+
+/**
  * Render followers list (reuses following-item styling)
  */
-function renderFollowersList(users) {
+function renderFollowersList(users, replace = true) {
     const list = document.getElementById('followersList');
     
     if (!users || users.length === 0) {
-        list.innerHTML = '<div class="loading">No followers</div>';
+        if (replace) list.innerHTML = '<div class="loading">No followers</div>';
         return;
     }
     
-    list.innerHTML = users.map(user => `
-        <div class="following-item">
-            <img class="avatar" src="${proxyUrl(user.profile_image_url)}" alt="" onclick="navigateToProfile('${user.screen_name}')">
-            <div class="info" onclick="navigateToProfile('${user.screen_name}')">
-                <div class="name">
-                    <span class="name-text">${escapeHtml(user.name)}</span>
-                    ${user.verified ? '<svg viewBox="0 0 22 22" width="18" height="18" style="fill: #1d9bf0;"><path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"></path></svg>' : ''}
-                </div>
-                <div class="handle">@${user.screen_name}</div>
-                ${user.description ? `<div class="bio">${escapeHtml(user.description)}</div>` : ''}
-            </div>
-            <button class="follow-btn ${user.following ? 'following' : ''}" 
-                    onclick="event.stopPropagation(); toggleFollowInList('${user.id}', ${user.following}, this)">
-                ${user.following ? 'Following' : 'Follow'}
-            </button>
-        </div>
-    `).join('');
+    const html = users.map(renderFollowingUserItem).join('');
+    
+    if (replace) {
+        list.innerHTML = html;
+    } else {
+        const existingItems = list.querySelectorAll('.following-item');
+        if (existingItems.length === 0) {
+            list.innerHTML = html;
+        } else {
+            list.insertAdjacentHTML('beforeend', html);
+        }
+    }
 }
 
 /**

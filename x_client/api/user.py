@@ -3,7 +3,7 @@ User API module for X API client.
 
 This module provides API methods for user-related operations.
 """
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 
 from ..constants import APIEndpoints, Features
 from ..models import User
@@ -111,6 +111,33 @@ class UserAPI(BaseAPI):
         
         return all_users
     
+    def get_following_page(
+        self,
+        user_id: str,
+        count: int = 100,
+        cursor: str = "",
+    ) -> Tuple[List[User], str]:
+        """Fetch a single page of following users with pagination cursor."""
+        variables = {
+            "userId": str(user_id),
+            "count": count,
+            "includePromotedContent": False,
+            "cursor": cursor,
+        }
+        
+        params = self._build_params(
+            variables=variables,
+            features=Features.FOLLOWING
+        )
+        
+        data = self._get(APIEndpoints.FOLLOWING, params)
+        users, next_cursor = self._timeline_parser.parse_users(data)
+        
+        if not next_cursor or next_cursor.startswith("0|"):
+            next_cursor = ""
+        
+        return users, next_cursor
+    
     def get_followers(
         self,
         user_id: str,
@@ -170,6 +197,38 @@ class UserAPI(BaseAPI):
             cursor = next_cursor
         
         return all_users
+    
+    def get_followers_page(
+        self,
+        user_id: str,
+        count: int = 100,
+        cursor: str = "",
+    ) -> Tuple[List[User], str]:
+        """Fetch a single page of followers with pagination cursor."""
+        from ..models import User as UserModel
+        
+        cursor_val = int(cursor) if cursor else -1
+        
+        params = {
+            "user_id": str(user_id),
+            "count": str(count),
+            "cursor": str(cursor_val),
+            "skip_status": "true",
+            "include_user_entities": "true",
+        }
+        
+        data = self._get(APIEndpoints.FOLLOWERS, params=params)
+        
+        users = []
+        for user_data in data.get("users", []):
+            user = UserModel.from_v1_dict(user_data)
+            if user:
+                users.append(user)
+        
+        next_cursor = data.get("next_cursor", 0)
+        next_cursor_str = str(next_cursor) if next_cursor else ""
+        
+        return users, next_cursor_str
     
     def follow_user(self, user_id: str) -> bool:
         """

@@ -17,19 +17,28 @@
     --danger: #f4212e;
 }
 
-html, body {
+html {
     min-height: 100%;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--primary-bg);
     color: var(--text-primary);
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
-    /* Prevent browser back/forward gesture on Android edge swipe */
-    overscroll-behavior: none;
-    overscroll-behavior-x: none;
-    /* Prevent pull-to-refresh and other browser gestures */
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+}
+
+body {
+    min-height: 100%;
+    background-color: var(--primary-bg);
+    color: var(--text-primary);
+    overflow-x: hidden;
+}
+
+/* Touch devices: block edge-swipe back without breaking PC mouse wheel scroll */
+@media (pointer: coarse) {
+    html {
+        overscroll-behavior-x: none;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
 #app {
