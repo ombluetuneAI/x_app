@@ -253,6 +253,122 @@ let tweetLightboxMedia = [];  // Media array for current tweet lightbox
 let isTweetLightbox = false;   // Whether lightbox is showing tweet media (vs profile media grid)
 let tweetMediaMap = {};        // Store media arrays keyed by tweet ID
 
+const PAGINATION_FOOTERS = {
+    home: {
+        id: 'homePaginationFooter',
+        getState: () => ({
+            loading: isLoadingHome,
+            hasMore: hasMoreHome,
+            hasContent: homeTweets.length > 0,
+        }),
+    },
+    posts: {
+        id: 'postsPaginationFooter',
+        getState: () => ({
+            loading: isLoadingPosts,
+            hasMore: hasMorePosts,
+            hasContent: allTweets.length > 0,
+        }),
+    },
+    media: {
+        id: 'mediaPaginationFooter',
+        getState: () => ({
+            loading: isLoadingMedia,
+            hasMore: hasMoreMedia,
+            hasContent: allMedia.length > 0,
+        }),
+    },
+    following: {
+        id: 'followingPaginationFooter',
+        getState: () => ({
+            loading: isLoadingFollowing,
+            hasMore: hasMoreFollowing,
+            hasContent: allFollowingUsers.length > 0,
+        }),
+    },
+    followers: {
+        id: 'followersPaginationFooter',
+        getState: () => ({
+            loading: isLoadingFollowers,
+            hasMore: hasMoreFollowers,
+            hasContent: allFollowersUsers.length > 0,
+        }),
+    },
+};
+
+function isNearPageBottom(threshold = 1000) {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const windowHeight = window.innerHeight;
+    const docHeight = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight,
+        document.body.offsetHeight,
+        document.documentElement.offsetHeight
+    );
+    return (docHeight - (scrollTop + windowHeight)) <= threshold;
+}
+
+function hideAllPaginationFooters() {
+    Object.values(PAGINATION_FOOTERS).forEach(({ id }) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.className = 'pagination-footer hidden';
+            el.textContent = '';
+        }
+    });
+}
+
+function updatePaginationFooter(footerId, { loading, hasMore, hasContent }) {
+    const el = document.getElementById(footerId);
+    if (!el) return;
+
+    el.classList.remove('is-loading', 'is-end');
+
+    if (loading) {
+        el.className = 'pagination-footer is-loading';
+        el.textContent = '加载中...';
+        return;
+    }
+
+    if (!hasMore && hasContent) {
+        el.className = 'pagination-footer is-end';
+        el.textContent = '已经到底了';
+        return;
+    }
+
+    el.className = 'pagination-footer hidden';
+    el.textContent = '';
+}
+
+function getCurrentPaginationKey() {
+    if (currentView === 'home') return 'home';
+    if (currentView === 'following') return 'following';
+    if (currentView === 'followers') return 'followers';
+    if (currentView === 'profile') {
+        if (currentTab === 'posts') return 'posts';
+        if (currentTab === 'media') return 'media';
+    }
+    return null;
+}
+
+function refreshCurrentPaginationFooter() {
+    const key = getCurrentPaginationKey();
+    hideAllPaginationFooters();
+    if (!key || !isNearPageBottom()) return;
+
+    const footer = PAGINATION_FOOTERS[key];
+    const state = footer.getState();
+
+    if (state.loading) {
+        updatePaginationFooter(footer.id, state);
+        return;
+    }
+
+    if (!state.hasMore && state.hasContent) {
+        updatePaginationFooter(footer.id, state);
+    }
+}
+
 // DOM Elements
 const homeView = document.getElementById('homeView');
 const profileView = document.getElementById('profileView');
@@ -360,6 +476,7 @@ function switchHomeFeed(feedType) {
     homeTweets = [];
     homeLoadedIds = new Set();
     hasMoreHome = true;
+    hideAllPaginationFooters();
     loadHomeTimeline();
 }
 
@@ -369,6 +486,7 @@ function switchHomeFeed(feedType) {
 async function loadHomeTimeline(cursor = '') {
     if (isLoadingHome) return;
     isLoadingHome = true;
+    if (cursor) refreshCurrentPaginationFooter();
     
     try {
         if (!cursor) {
@@ -420,6 +538,7 @@ async function loadHomeTimeline(cursor = '') {
         hasMoreHome = false;
     } finally {
         isLoadingHome = false;
+        refreshCurrentPaginationFooter();
     }
 }
 
@@ -442,6 +561,7 @@ function switchTab(tabName) {
     // Show selected view
     const viewId = tabName + 'View';
     document.getElementById(viewId).classList.remove('hidden');
+    hideAllPaginationFooters();
     
     // Update header subtitle based on tab
     if (currentUser) {
@@ -460,6 +580,8 @@ function switchTab(tabName) {
     } else if (tabName === 'media' && currentUser) {
         loadUserMedia(currentUser.screen_name);
     }
+
+    requestAnimationFrame(() => refreshCurrentPaginationFooter());
 }
 
 /**
@@ -532,6 +654,7 @@ async function loadUserTweets(screenName, cursor = '') {
     if (isLoadingPosts) return;
     
     isLoadingPosts = true;
+    if (cursor) refreshCurrentPaginationFooter();
     
     try {
         if (!cursor) {
@@ -583,6 +706,7 @@ async function loadUserTweets(screenName, cursor = '') {
         }
     } finally {
         isLoadingPosts = false;
+        refreshCurrentPaginationFooter();
     }
 }
 
@@ -593,6 +717,7 @@ async function loadUserMedia(screenName, cursor = '') {
     if (isLoadingMedia) return;
     
     isLoadingMedia = true;
+    if (cursor) refreshCurrentPaginationFooter();
     
     try {
         if (!cursor) {
@@ -652,6 +777,7 @@ async function loadUserMedia(screenName, cursor = '') {
         }
     } finally {
         isLoadingMedia = false;
+        refreshCurrentPaginationFooter();
     }
 }
 
@@ -734,6 +860,8 @@ function setupInfiniteScroll() {
                 loadUserMedia(currentUser.screen_name, cursor);
             }
         }
+
+        refreshCurrentPaginationFooter();
     };
     
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -1129,7 +1257,44 @@ function mediaToPswpItem(m) {
         h: m.height || 0,
         isVideo,
         videoUrl: isVideo ? proxyUrl(m.video_url || m.url, true) : null,
+        rawVideoUrl: isVideo ? (m.video_url || m.url) : null,
     };
+}
+
+/**
+ * Copy text to clipboard with fallback
+ */
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        ta.remove();
+        return ok;
+    }
+}
+
+/**
+ * Copy current lightbox video playback URL
+ */
+async function copyCurrentVideoLink() {
+    if (!pswp) return;
+    const item = pswpItems[pswp.currIndex];
+    if (!item?.isVideo) return;
+    const url = item.videoUrl || item.rawVideoUrl;
+    if (!url) {
+        showToast('无法获取视频链接', 'error', 2000);
+        return;
+    }
+    const ok = await copyToClipboard(url);
+    showToast(ok ? '视频链接已复制' : '复制失败', ok ? 'success' : 'error', 2000);
 }
 
 /**
@@ -1210,6 +1375,28 @@ function initPhotoSwipe(startIndex) {
         }
     });
     
+    pswp.on('uiRegister', () => {
+        pswp.ui.registerElement({
+            name: 'copy-link-button',
+            order: 8,
+            isButton: true,
+            html: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
+            onInit: (el, pswpInstance) => {
+                const updateVisibility = () => {
+                    const item = pswpItems[pswpInstance.currIndex];
+                    el.style.display = item?.isVideo ? '' : 'none';
+                };
+                pswpInstance.on('change', updateVisibility);
+                updateVisibility();
+            },
+            onClick: (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                copyCurrentVideoLink();
+            },
+        });
+    });
+
     pswp.on('afterOpen', () => {
         isLightboxOpen = true;
         history.pushState({ lightbox: true }, '');
@@ -1355,6 +1542,7 @@ async function showFollowing(screenName) {
             headerTitle.textContent = 'Following';
             backBtn.classList.remove('hidden');
             currentView = 'following';
+            requestAnimationFrame(() => refreshCurrentPaginationFooter());
             return;
         }
         
@@ -1376,6 +1564,7 @@ async function showFollowing(screenName) {
 async function loadFollowing(screenName, cursor = '') {
     if (isLoadingFollowing) return;
     isLoadingFollowing = true;
+    if (cursor) refreshCurrentPaginationFooter();
     
     try {
         if (!cursor) {
@@ -1432,6 +1621,7 @@ async function loadFollowing(screenName, cursor = '') {
         }
     } finally {
         isLoadingFollowing = false;
+        refreshCurrentPaginationFooter();
     }
 }
 
@@ -1520,6 +1710,7 @@ async function showFollowers(screenName) {
             headerTitle.textContent = 'Followers';
             backBtn.classList.remove('hidden');
             currentView = 'followers';
+            requestAnimationFrame(() => refreshCurrentPaginationFooter());
             return;
         }
         
@@ -1541,6 +1732,7 @@ async function showFollowers(screenName) {
 async function loadFollowers(screenName, cursor = '') {
     if (isLoadingFollowers) return;
     isLoadingFollowers = true;
+    if (cursor) refreshCurrentPaginationFooter();
     
     try {
         if (!cursor) {
@@ -1597,6 +1789,7 @@ async function loadFollowers(screenName, cursor = '') {
         }
     } finally {
         isLoadingFollowers = false;
+        refreshCurrentPaginationFooter();
     }
 }
 
