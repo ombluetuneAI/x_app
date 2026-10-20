@@ -44,7 +44,7 @@ Static assets are served from `static/`. API routes are implemented as [Pages Fu
 
 ### Pages environment variables (secrets)
 
-Set these in the Cloudflare dashboard for project **x-app** (Settings → Environment variables), for both Production and Preview:
+Set these in the Cloudflare dashboard for project **x-xiaoxu** ([x-xiaoxu.pages.dev](https://x-xiaoxu.pages.dev) → Settings → Environment variables), for both Production and Preview:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -75,7 +75,7 @@ Repository secrets:
 - `CLOUDFLARE_API_TOKEN` — token with Cloudflare Pages edit permission
 - `CLOUDFLARE_ACCOUNT_ID` — your account id
 
-On push to the default branch (or manual `workflow_dispatch`), `.github/workflows/deploy-cloudflare-pages.yml` runs `wrangler pages deploy static --project-name=x-app`.
+On push to the default branch (or manual `workflow_dispatch`), `.github/workflows/deploy-cloudflare-pages.yml` runs `wrangler pages deploy static --project-name=x-xiaoxu`.
 
 ### Local Pages dev
 
