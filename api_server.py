@@ -5,9 +5,36 @@ Flask API Server for X Client Web Interface.
 This server provides REST API endpoints for the web frontend.
 """
 from pathlib import Path
-from flask import Flask, jsonify, request, send_from_directory
+from urllib.parse import urlparse
+
+import requests
+from flask import Flask, Response, jsonify, request, send_from_directory
 from flask_cors import CORS
 from x_client import XClient
+
+_MEDIA_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+_MEDIA_PASSTHROUGH_HEADERS = (
+    "Content-Type",
+    "Content-Length",
+    "Accept-Ranges",
+    "Content-Range",
+    "ETag",
+    "Last-Modified",
+)
+
+
+def _is_allowed_media_url(target: str) -> bool:
+    try:
+        parsed = urlparse(target)
+    except Exception:
+        return False
+    if parsed.scheme != "https":
+        return False
+    host = (parsed.hostname or "").lower()
+    return host == "twimg.com" or host.endswith(".twimg.com")
 
 # Configure app with static folder
 STATIC_FOLDER = Path(__file__).parent / "static"
@@ -210,6 +237,53 @@ def follow_user(user_id):
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/media', methods=['GET', 'HEAD'])
+def proxy_media():
+    """Proxy X/Twitter CDN media (twimg.com only) for the web UI."""
+    target = request.args.get('url')
+    if not target:
+        return jsonify({"success": False, "error": "Missing url query parameter"}), 400
+    if not _is_allowed_media_url(target):
+        return jsonify({"success": False, "error": "URL host not allowed"}), 403
+
+    headers = {"User-Agent": _MEDIA_UA}
+    range_header = request.headers.get("Range")
+    if range_header:
+        headers["Range"] = range_header
+
+    try:
+        upstream = requests.request(
+            request.method,
+            target,
+            headers=headers,
+            stream=True,
+            timeout=60,
+        )
+    except requests.RequestException as e:
+        return jsonify({"success": False, "error": str(e)}), 502
+
+    resp_headers = {}
+    for name in _MEDIA_PASSTHROUGH_HEADERS:
+        if name in upstream.headers:
+            resp_headers[name] = upstream.headers[name]
+    if "Cache-Control" not in resp_headers:
+        resp_headers["Cache-Control"] = "public, max-age=86400"
+
+    if request.method == "HEAD":
+        upstream.close()
+        return Response(status=upstream.status_code, headers=resp_headers)
+
+    def generate():
+        try:
+            for chunk in upstream.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    return Response(generate(), status=upstream.status_code, headers=resp_headers)
 
 
 @app.route('/api/user/<user_id>/unfollow', methods=['POST'])

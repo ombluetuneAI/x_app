@@ -119,5 +119,6 @@ X may block or rate-limit requests from Cloudflare datacenter IP addresses. If t
 - `GET /api/user/:screen_name`
 - `GET /api/user/:screen_name/media|following|followers|tweets`
 - `POST /api/user/:user_id/follow|unfollow`
+- `GET|HEAD /api/media?url=<encoded https twimg URL>` — built-in media proxy (`*.twimg.com` only; supports `Range` for video seeking). Same route exists on Flask for local dev. The SPA defaults to this same-origin proxy for images and video (see proxy settings).
 - `POST /api/translate` (Pages; proxies NiuTrans)
 - `POST /api/auth/login` (Pages; access gate)

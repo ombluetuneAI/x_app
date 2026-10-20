@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test functions/lib/*.test.js",
+    "test": "node --test functions/lib/*.test.js functions/lib/**/*.test.js",
     "pages:dev": "wrangler pages dev static --port 8788"
   },
   "devDependencies": {
