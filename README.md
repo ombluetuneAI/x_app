@@ -64,7 +64,7 @@ When `ACCESS_KEY` is set, `functions/_middleware.js` requires a matching value v
 - HttpOnly cookie `access_key` (set by `POST /api/auth/login`), or
 - Header `X-Access-Key`
 
-Unauthenticated browser requests redirect to `/login.html`. API requests return `401` JSON.
+Unauthenticated browser requests redirect to `/login` (Pages pretty URLs serve `login.html` at `/login`). API requests return `401` JSON.
 
 For stronger protection (SSO, MFA, IP policies), consider [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) in front of the Pages hostname.
 

@@ -1,5 +1,5 @@
 const COOKIE_NAME = 'access_key';
-const PUBLIC_PATHS = new Set(['/login.html', '/api/auth/login']);
+const PUBLIC_PATHS = new Set(['/login', '/login.html', '/api/auth/login']);
 
 function isPublicAsset(pathname) {
   if (PUBLIC_PATHS.has(pathname)) return true;
@@ -38,7 +38,7 @@ export async function onRequest(context) {
     });
   }
 
-  const loginUrl = new URL('/login.html', url.origin);
+  const loginUrl = new URL('/login', url.origin);
   loginUrl.searchParams.set('redirect', url.pathname + url.search);
   return Response.redirect(loginUrl.toString(), 302);
 }
