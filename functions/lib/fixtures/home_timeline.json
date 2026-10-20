@@ -1,0 +1,59 @@
+{
+  "data": {
+    "home": {
+      "home_timeline_urt": {
+        "instructions": [
+          {
+            "type": "TimelineAddEntries",
+            "entries": [
+              {
+                "entryId": "tweet-1",
+                "content": {
+                  "entryType": "TimelineTimelineItem",
+                  "itemContent": {
+                    "tweet_results": {
+                      "result": {
+                        "rest_id": "999",
+                        "legacy": {
+                          "full_text": "Hello world",
+                          "created_at": "Mon Jan 01 00:00:00 +0000 2020",
+                          "favorite_count": 1,
+                          "retweet_count": 0,
+                          "reply_count": 0,
+                          "quote_count": 0
+                        },
+                        "core": {
+                          "user_results": {
+                            "result": {
+                              "rest_id": "123",
+                              "core": {
+                                "name": "Author",
+                                "screen_name": "author"
+                              },
+                              "legacy": {
+                                "profile_image_url_https": "https://pbs.twimg.com/profile_normal/a.jpg"
+                              }
+                            }
+                          }
+                        },
+                        "views": { "count": "10" }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "entryId": "cursor-bottom",
+                "content": {
+                  "entryType": "TimelineTimelineCursor",
+                  "cursorType": "Bottom",
+                  "value": "cursor-page-2"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

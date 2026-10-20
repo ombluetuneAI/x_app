@@ -1,3 +1,6 @@
 __pycache__/
 config.json
+.dev.vars
+node_modules/
+.wrangler/
 

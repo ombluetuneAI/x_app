@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 — X Profile Viewer</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .login-wrap { max-width: 360px; margin: 15vh auto; padding: 2rem; }
+    .login-wrap h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+    .login-wrap input { width: 100%; padding: 0.6rem; margin-bottom: 1rem; }
+    .login-wrap button { width: 100%; padding: 0.6rem; cursor: pointer; }
+    .login-error { color: #e0245e; margin-top: 0.75rem; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <h1>访问密钥</h1>
+    <p>请输入站点访问密钥以继续。</p>
+    <form id="loginForm">
+      <input type="password" id="accessKey" name="key" placeholder="ACCESS_KEY" autocomplete="current-password" required>
+      <button type="submit">登录</button>
+    </form>
+    <p id="loginError" class="login-error hidden"></p>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect') || '/';
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const key = document.getElementById('accessKey').value;
+      const errEl = document.getElementById('loginError');
+      errEl.classList.add('hidden');
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          location.href = redirect;
+        } else {
+          errEl.textContent = data.error || '登录失败';
+          errEl.classList.remove('hidden');
+        }
+      } catch {
+        errEl.textContent = '网络错误';
+        errEl.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -222,15 +222,6 @@ async function translateTweet(tweetId, btn) {
         return;
     }
 
-    // Check credentials first
-    if (!hasNiuTransCredentials()) {
-        if (typeof showToast === 'function') {
-            showToast('请先在设置中配置小牛翻译 API 密钥', 'error', 4000);
-        }
-        openSettings();
-        return;
-    }
-
     // Check cache
     if (translationCache[tweetId]) {
         translationDiv.textContent = translationCache[tweetId];
@@ -255,37 +246,53 @@ async function translateTweet(tweetId, btn) {
 
     try {
         const { appid, apikey } = getNiuTransCredentials();
-        const timestamp = Date.now().toString();
-
-        // Build params for auth signature (including apikey)
-        const signParams = {
-            appId: appid,
-            apikey: apikey,
-            from: 'auto',
-            srcText: text,
-            timestamp: timestamp,
-            to: 'zh'
-        };
-        const authStr = generateAuthStr(signParams);
-
-        // Build request body (without apikey)
-        const requestBody = new URLSearchParams();
-        requestBody.append('from', 'auto');
-        requestBody.append('to', 'zh');
-        requestBody.append('srcText', text);
-        requestBody.append('appId', appid);
-        requestBody.append('timestamp', timestamp);
-        requestBody.append('authStr', authStr);
-
-        const response = await fetch(NIUTRANS_API_URL, {
+        let data;
+        const proxyRes = await fetch('/api/translate', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: requestBody.toString()
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text,
+                from: 'auto',
+                to: 'zh',
+                ...(appid && apikey ? { appId: appid, apikey } : {}),
+            }),
         });
 
-        const data = await response.json();
+        if (proxyRes.ok) {
+            data = await proxyRes.json();
+        } else if (proxyRes.status === 404 && appid && apikey) {
+            const timestamp = Date.now().toString();
+            const signParams = {
+                appId: appid,
+                apikey: apikey,
+                from: 'auto',
+                srcText: text,
+                timestamp: timestamp,
+                to: 'zh'
+            };
+            const authStr = generateAuthStr(signParams);
+            const requestBody = new URLSearchParams();
+            requestBody.append('from', 'auto');
+            requestBody.append('to', 'zh');
+            requestBody.append('srcText', text);
+            requestBody.append('appId', appid);
+            requestBody.append('timestamp', timestamp);
+            requestBody.append('authStr', authStr);
+            const response = await fetch(NIUTRANS_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: requestBody.toString()
+            });
+            data = await response.json();
+        } else {
+            const err = await proxyRes.json().catch(() => ({}));
+            if (typeof showToast === 'function') {
+                showToast(err.error || '翻译服务未配置，请在 Pages 环境变量中设置 NIUTRANS_APP_ID / NIUTRANS_API_KEY', 'error', 5000);
+            }
+            btn.innerHTML = `${TRANSLATE_SVG} 翻译`;
+            btn.disabled = false;
+            return;
+        }
 
         if (data.tgtText) {
             const translated = data.tgtText;
