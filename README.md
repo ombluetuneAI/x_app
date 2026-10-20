@@ -1,69 +1,124 @@
-# X Browser GUI
+# X Profile Viewer
 
-A PyQt5-based GUI application for browsing X (Twitter) users and their content.
+Web UI for browsing X (Twitter) profiles, timelines, media, and follow graphs. The frontend lives in `static/`; the backend can run as **Flask** locally (`api_server.py`) or on **Cloudflare Pages** via Pages Functions (`functions/`).
 
 ## Features
 
 - User search and profile display
-- Tweet browsing with text content
-- Media content display (images and videos)
-- Following user navigation
-- Back navigation between users
-- Media links that open in browser
+- Home timeline (For You / Following)
+- Tweet browsing with media
+- Following / followers lists
+- Follow / unfollow actions
+- Optional NiuTrans translation (server-proxied on Pages)
 
-## Requirements
+## Local development (Flask)
 
-- Python 3.7+
-- PyQt5
-- requests
+1. Install Python dependencies (see your environment; `flask`, `flask-cors`, `requests`).
 
-## Installation
+2. Create `config.json` in the repo root:
 
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Create `config.json` with your X API credentials:
 ```json
 {
-  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-  "cookies": {
-    "auth_token": "your_auth_token",
-    "ct0": "your_csrf_token"
-  },
-  "proxies": {
-    "http": "http://127.0.0.1:7890",
-    "https": "http://127.0.0.1:7890"
-  }
+  "auth_token": "your_auth_token",
+  "ct0": "your_csrf_token",
+  "proxy": "http://127.0.0.1:7890"
 }
 ```
 
-## Usage
+3. Run the API + static server:
 
-1. Run the GUI:
 ```bash
-python gui.py
+python api_server.py
 ```
 
-2. Search for users (default starts with elonmusk)
-3. Click on following users to navigate
-4. Use back button to return to previous users
-5. Click media links to open in browser
+Open http://localhost:5000
 
-## UI Components
+## Cloudflare Pages deployment
 
-- **Profile Panel**: Shows user info and stats
-- **Following List**: Shows users this account follows
-- **All Tweets**: Displays all tweets with content and media links
-- **Media Posts**: Shows tweets that contain media
-- **Navigation**: Search box and back button
+Static assets are served from `static/`. API routes are implemented as [Pages Functions](https://developers.cloudflare.com/pages/functions/) under `functions/api/`, matching the paths expected by `static/app.js` (`API_BASE` defaults to same-origin).
 
-## API Integration
+### Prerequisites
 
-The GUI uses the unified X API client to fetch:
-- User profiles
-- Tweets and media
-- Following relationships
+- Cloudflare account
+- X session cookies: `auth_token` and `ct0` from a logged-in browser session on x.com
 
-Note: Some features may be limited due to X API restrictions.
+### Pages environment variables (secrets)
+
+Set these in the Cloudflare dashboard for project **x-xiaoxu** ([x-xiaoxu.pages.dev](https://x-xiaoxu.pages.dev) → Settings → Environment variables), for both Production and Preview:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `X_AUTH_TOKEN` | Yes | Cookie `auth_token` |
+| `X_CT0` | Yes | Cookie `ct0` (also sent as `X-Csrf-Token`) |
+| `ACCESS_KEY` | Yes | Shared secret for site access (see below) |
+| `NIUTRANS_APP_ID` | No | NiuTrans app id (translation) |
+| `NIUTRANS_API_KEY` | No | NiuTrans API key (translation) |
+| `X_BEARER` | No | Override Twitter web bearer token (default is built-in public token) |
+
+Never commit real credential values.
+
+### Access protection
+
+When `ACCESS_KEY` is set, `functions/_middleware.js` requires a matching value via:
+
+- HttpOnly cookie `access_key` (set by `POST /api/auth/login`), or
+- Header `X-Access-Key`
+
+Unauthenticated browser requests redirect to `/login` (Pages pretty URLs serve `login.html` at `/login`). API requests return `401` JSON.
+
+For stronger protection (SSO, MFA, IP policies), consider [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/) in front of the Pages hostname.
+
+### GitHub Actions
+
+Repository secrets:
+
+- `CLOUDFLARE_API_TOKEN` — token with Cloudflare Pages edit permission
+- `CLOUDFLARE_ACCOUNT_ID` — your account id
+
+On push to the default branch (or manual `workflow_dispatch`), `.github/workflows/deploy-cloudflare-pages.yml` runs `wrangler pages deploy static --project-name=x-xiaoxu`.
+
+### Local Pages dev
+
+```bash
+npm install
+cp .dev.vars.example .dev.vars   # edit with dummy or real values
+npm run pages:dev
+```
+
+Open http://localhost:8788
+
+Verify:
+
+- Static files and SPA load
+- With `ACCESS_KEY` set, `/` redirects to login; `/api/auth/login` sets cookie
+- `/api/home/timeline` returns `{ success: false, error: ... }` with HTTP 503 if `X_AUTH_TOKEN` / `X_CT0` are missing
+
+### Parser tests
+
+```bash
+npm test
+```
+
+### Operational caveat
+
+X may block or rate-limit requests from Cloudflare datacenter IP addresses. If timelines fail only on Pages but work locally, use a residential proxy or run the Flask backend outside Cloudflare.
+
+## Project layout
+
+| Path | Role |
+|------|------|
+| `static/` | SPA (`index.html`, `app.js`, …) |
+| `functions/` | Pages Functions API + middleware |
+| `x_client/` | Python X API client (Flask / scripts) |
+| `api_server.py` | Local Flask server |
+| `wrangler.toml` | Pages build output dir (`static`) |
+
+## API routes (Flask and Pages)
+
+- `GET /api/home/timeline?type=foryou|following&count=&cursor=`
+- `GET /api/user/:screen_name`
+- `GET /api/user/:screen_name/media|following|followers|tweets`
+- `POST /api/user/:user_id/follow|unfollow`
+- `GET|HEAD /api/media?url=<encoded https twimg URL>` — built-in media proxy (`*.twimg.com` only; supports `Range` for video seeking). Same route exists on Flask for local dev. The SPA defaults to this same-origin proxy for images and video (see proxy settings).
+- `POST /api/translate` (Pages; proxies NiuTrans)
+- `POST /api/auth/login` (Pages; access gate)

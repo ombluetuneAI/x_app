@@ -1,0 +1,8 @@
+# Copy to .dev.vars for local `wrangler pages dev` (never commit .dev.vars)
+X_AUTH_TOKEN=your_auth_token_from_browser_cookies
+X_CT0=your_ct0_csrf_token
+# Optional: override public web bearer token
+# X_BEARER=...
+ACCESS_KEY=choose-a-shared-secret
+NIUTRANS_APP_ID=your_niutrans_app_id
+NIUTRANS_API_KEY=your_niutrans_api_key

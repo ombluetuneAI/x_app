@@ -1,0 +1,23 @@
+{
+  "data": {
+    "user": {
+      "result": {
+        "__typename": "User",
+        "rest_id": "1234567890",
+        "legacy": {
+          "name": "Example User",
+          "screen_name": "exampleuser",
+          "description": "Bio",
+          "followers_count": 42,
+          "friends_count": 10,
+          "statuses_count": 5,
+          "media_count": 1,
+          "listed_count": 0,
+          "favourites_count": 0,
+          "profile_image_url_https": "https://pbs.twimg.com/profile_normal/x.jpg",
+          "created_at": "Mon Jan 01 00:00:00 +0000 2020"
+        }
+      }
+    }
+  }
+}

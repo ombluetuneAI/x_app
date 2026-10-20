@@ -8,25 +8,72 @@ const API_BASE = '';
  * Proxy settings with defaults
  * Stored in localStorage as JSON
  */
+const BUILTIN_MEDIA_PROXY = '/api/media?url=';
+const LEGACY_STILL_GLITTER_PROXY = 'https://still-glitter-af7b.1571314213.workers.dev?url=';
+const EXTERNAL_MEDIA_PROXY = 'https://pz.v88.qzz.io?url=';
+
 const DEFAULT_PROXY_SETTINGS = {
     imageEnabled: true,
-    imageProxies: [
-        'https://still-glitter-af7b.1571314213.workers.dev?url=',
-        'https://pz.v88.qzz.io?url='
-    ],
-    imageProxyIndex: 1,
-    videoEnabled: false,
-    videoProxies: [
-        'https://still-glitter-af7b.1571314213.workers.dev?url=',
-        'https://pz.v88.qzz.io?url='
-    ],
-    videoProxyIndex: 1,
+    imageProxies: [BUILTIN_MEDIA_PROXY, EXTERNAL_MEDIA_PROXY],
+    imageProxyIndex: 0,
+    videoEnabled: true,
+    videoProxies: [BUILTIN_MEDIA_PROXY, EXTERNAL_MEDIA_PROXY],
+    videoProxyIndex: 0,
 };
+
+function isBuiltinMediaProxy(proxy) {
+    return proxy === BUILTIN_MEDIA_PROXY || (typeof proxy === 'string' && proxy.startsWith('/api/media?'));
+}
+
+function migrateProxySettings(raw) {
+    const settings = { ...DEFAULT_PROXY_SETTINGS, ...raw };
+
+    function migrateList(proxies, indexKey) {
+        const oldList = Array.isArray(proxies) ? [...proxies] : [...DEFAULT_PROXY_SETTINGS.imageProxies];
+        const oldIndex = typeof settings[indexKey] === 'number' ? settings[indexKey] : 0;
+        const oldSelected = oldList[oldIndex];
+
+        let list = oldList.filter((p) => p !== LEGACY_STILL_GLITTER_PROXY);
+        if (!list.some(isBuiltinMediaProxy)) {
+            list = [BUILTIN_MEDIA_PROXY, ...list];
+        }
+
+        let newIndex = list.indexOf(oldSelected);
+        if (newIndex < 0 || oldSelected === LEGACY_STILL_GLITTER_PROXY) {
+            newIndex = list.findIndex(isBuiltinMediaProxy);
+            if (newIndex < 0) newIndex = 0;
+        }
+        if (newIndex >= list.length) newIndex = 0;
+
+        settings[indexKey] = newIndex;
+        return list;
+    }
+
+    settings.imageProxies = migrateList(settings.imageProxies, 'imageProxyIndex');
+    settings.videoProxies = migrateList(settings.videoProxies, 'videoProxyIndex');
+    return settings;
+}
 
 function getProxySettings() {
     try {
         const saved = localStorage.getItem('proxy_settings');
-        if (saved) return { ...DEFAULT_PROXY_SETTINGS, ...JSON.parse(saved) };
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            const migrated = migrateProxySettings(parsed);
+            const before = JSON.stringify(parsed);
+            const after = JSON.stringify({
+                imageEnabled: migrated.imageEnabled,
+                imageProxies: migrated.imageProxies,
+                imageProxyIndex: migrated.imageProxyIndex,
+                videoEnabled: migrated.videoEnabled,
+                videoProxies: migrated.videoProxies,
+                videoProxyIndex: migrated.videoProxyIndex,
+            });
+            if (before !== after) {
+                saveProxySettings(migrated);
+            }
+            return migrated;
+        }
     } catch (e) {}
     return { ...DEFAULT_PROXY_SETTINGS };
 }
@@ -70,7 +117,7 @@ function importSettings() {
             try {
                 const data = JSON.parse(ev.target.result);
                 if (data.proxy_settings) {
-                    saveProxySettings({ ...DEFAULT_PROXY_SETTINGS, ...data.proxy_settings });
+                    saveProxySettings(migrateProxySettings(data.proxy_settings));
                 }
                 if (data.niutrans_appid !== undefined) {
                     localStorage.setItem('niutrans_appid', data.niutrans_appid);
@@ -99,18 +146,34 @@ function hasLocalSettings() {
     return !!localStorage.getItem('proxy_settings') || !!localStorage.getItem('niutrans_appid') || !!localStorage.getItem('niutrans_apikey');
 }
 
+function buildProxiedMediaUrl(prefix, targetUrl) {
+    if (!prefix) return targetUrl;
+    const encoded = encodeURIComponent(targetUrl);
+    if (prefix.startsWith('/')) {
+        return prefix + encoded;
+    }
+    return prefix + encoded;
+}
+
 function proxyUrl(url, isVideo = false) {
     if (!url) return '';
     const settings = getProxySettings();
     if (isVideo) {
         if (!settings.videoEnabled) return url;
         const prefix = settings.videoProxies[settings.videoProxyIndex] || settings.videoProxies[0];
-        return prefix ? prefix + encodeURIComponent(url) : url;
+        return buildProxiedMediaUrl(prefix, url);
     } else {
         if (!settings.imageEnabled) return url;
         const prefix = settings.imageProxies[settings.imageProxyIndex] || settings.imageProxies[0];
-        return prefix ? prefix + encodeURIComponent(url) : url;
+        return buildProxiedMediaUrl(prefix, url);
     }
+}
+
+function formatProxyLabel(proxy) {
+    if (isBuiltinMediaProxy(proxy)) {
+        return '内置代理（本站 /api/media）';
+    }
+    return proxy;
 }
 
 /**
@@ -118,15 +181,18 @@ function proxyUrl(url, isVideo = false) {
  */
 function renderProxyList(containerId, proxies, selectedIndex) {
     const container = document.getElementById(containerId);
-    container.innerHTML = proxies.map((proxy, i) => `
+    container.innerHTML = proxies.map((proxy, i) => {
+        const label = formatProxyLabel(proxy);
+        const canDelete = !isBuiltinMediaProxy(proxy);
+        return `
         <div class="proxy-item">
             <label class="proxy-radio">
                 <input type="radio" name="${containerId}" value="${i}" ${i === selectedIndex ? 'checked' : ''}>
-                <span class="proxy-url" title="${proxy}">${proxy}</span>
+                <span class="proxy-url" title="${proxy}">${label}</span>
             </label>
-            <button class="proxy-delete-btn" onclick="removeProxy('${containerId}', ${i})" title="删除">×</button>
-        </div>
-    `).join('');
+            ${canDelete ? `<button class="proxy-delete-btn" onclick="removeProxy('${containerId}', ${i})" title="删除">×</button>` : ''}
+        </div>`;
+    }).join('');
 }
 
 /**
@@ -176,6 +242,10 @@ function removeProxy(containerId, index) {
     const settings = getProxySettings();
     const isImage = containerId === 'imageProxyList';
     const proxies = isImage ? settings.imageProxies : settings.videoProxies;
+    if (isBuiltinMediaProxy(proxies[index])) {
+        showToast('内置代理不可删除', 'error', 2000);
+        return;
+    }
     if (proxies.length <= 1) {
         showToast('至少保留一个代理', 'error', 2000);
         return;
