@@ -269,6 +269,22 @@ function removeProxy(containerId, index) {
  * @param {string} type - 'error', 'success', or 'info'
  * @param {number} duration - Duration in milliseconds (default 3000)
  */
+function formatApiError(error, fallback = 'Something went wrong') {
+    if (!error) return fallback;
+    const str = String(error).trim();
+    if (str.startsWith('{') || str.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(str);
+            if (parsed?.errors?.length) {
+                return 'Unable to load this post.';
+            }
+        } catch (e) {
+            return fallback;
+        }
+    }
+    return str.length > 200 ? `${str.slice(0, 200)}…` : str;
+}
+
 function showToast(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
@@ -318,6 +334,14 @@ let hasMorePosts = true;
 let loadedMediaIds = new Set();
 let loadedTweetIds = new Set();
 
+// Tweet detail (in-app Post) state
+let tweetDetailId = '';
+let tweetDetailCursor = '';
+let tweetDetailReplies = [];
+let tweetDetailLoadedReplyIds = new Set();
+let isLoadingTweetDetail = false;
+let hasMoreTweetReplies = true;
+
 // Tweet media lightbox state
 let tweetLightboxMedia = [];  // Media array for current tweet lightbox
 let isTweetLightbox = false;   // Whether lightbox is showing tweet media (vs profile media grid)
@@ -362,6 +386,14 @@ const PAGINATION_FOOTERS = {
             loading: isLoadingFollowers,
             hasMore: hasMoreFollowers,
             hasContent: allFollowersUsers.length > 0,
+        }),
+    },
+    tweetDetail: {
+        id: 'tweetDetailPaginationFooter',
+        getState: () => ({
+            loading: isLoadingTweetDetail,
+            hasMore: hasMoreTweetReplies,
+            hasContent: tweetDetailReplies.length > 0,
         }),
     },
 };
@@ -412,6 +444,7 @@ function updatePaginationFooter(footerId, { loading, hasMore, hasContent }) {
 
 function getCurrentPaginationKey() {
     if (currentView === 'home') return 'home';
+    if (currentView === 'tweet') return 'tweetDetail';
     if (currentView === 'following') return 'following';
     if (currentView === 'followers') return 'followers';
     if (currentView === 'profile') {
@@ -442,6 +475,7 @@ function refreshCurrentPaginationFooter() {
 // DOM Elements
 const homeView = document.getElementById('homeView');
 const profileView = document.getElementById('profileView');
+const tweetDetailView = document.getElementById('tweetDetailView');
 const followingView = document.getElementById('followingView');
 const followersView = document.getElementById('followersView');
 const backBtn = document.getElementById('backBtn');
@@ -452,7 +486,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Get screen name and view from URL or use default
     const params = new URLSearchParams(window.location.search);
     const screenName = params.get('user');
-    const view = params.get('view') || 'home';
+    const tweetParam = params.get('tweet') || params.get('t');
+    const view = params.get('view') || (tweetParam ? 'tweet' : 'home');
     
     // Push an initial safe anchor state to prevent Android edge-swipe from
     // closing the page when the history stack is shallow (e.g., direct access).
@@ -466,6 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showFollowing(screenName);
     } else if (view === 'followers' && screenName) {
         showFollowers(screenName);
+    } else if (view === 'tweet' && tweetParam) {
+        openTweetDetailView(tweetParam, false);
     } else if (screenName) {
         // Default: show user profile when user param is present
         loadUserProfile(screenName);
@@ -511,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function showHome() {
     homeView.classList.remove('hidden');
     profileView.classList.add('hidden');
+    tweetDetailView.classList.add('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
     backBtn.classList.add('hidden');
@@ -521,6 +559,8 @@ function showHome() {
     const url = new URL(window.location);
     url.searchParams.delete('user');
     url.searchParams.delete('view');
+    url.searchParams.delete('tweet');
+    url.searchParams.delete('t');
     window.history.replaceState({ view: 'home' }, '', url);
     
     // Load home feed if not already loaded
@@ -909,6 +949,16 @@ function setupInfiniteScroll() {
             }
             return;
         }
+
+        // Tweet detail replies
+        if (currentView === 'tweet') {
+            if (!hasMoreTweetReplies || isLoadingTweetDetail) return;
+            if (distanceToBottom < threshold && distanceToBottom > -100 && tweetDetailCursor) {
+                lastTriggerTime = now;
+                loadTweetDetail(tweetDetailId, tweetDetailCursor);
+            }
+            return;
+        }
         
         const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
         const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
@@ -1129,7 +1179,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
     
     const translateBtnHtml = (tweetId) => `
         <div class="tweet-translate-area" id="translate-${tweetId}">
-            <button class="translate-btn" onclick="translateTweet('${tweetId}', this)">
+            <button class="translate-btn" onclick="event.stopPropagation(); translateTweet('${tweetId}', this)">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg>
                 翻译
             </button>
@@ -1139,8 +1189,8 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
     
     const renderTweetHeader = (name, handle, avatar, date) => `
         <div class="tweet-header">
-            <img class="tweet-avatar" src="${proxyUrl(avatar)}" alt="" onclick="navigateToProfile('${handle}')">
-            <div class="tweet-author" onclick="navigateToProfile('${handle}')">
+            <img class="tweet-avatar" src="${proxyUrl(avatar)}" alt="" onclick="event.stopPropagation(); navigateToProfile('${handle}')">
+            <div class="tweet-author" onclick="event.stopPropagation(); navigateToProfile('${handle}')">
                 <span class="tweet-author-name">${escapeHtml(name)}</span>
                 <span class="tweet-author-handle">@${handle}</span>
             </div>
@@ -1176,7 +1226,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
         return `
             <div class="tweet-nested-card">
                 ${renderTweetHeader(qName, qHandle, qAvatar, nestedTweet.created_at)}
-                <div class="tweet-text">${linkifyText(nestedTweet.text)}</div>
+                <div class="tweet-text tweet-text-open" onclick="onTweetTextOpen(event, '${nestedTweet.id}')">${linkifyText(nestedTweet.text)}</div>
                 ${translateBtnHtml(nestedTweet.id)}
                 ${renderTweetMedia(nestedTweet.media, nestedTweet.id)}
             </div>
@@ -1228,7 +1278,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
             return `
                 <div class="tweet-item">
                     ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
-                    ${quoteText ? `<div class="tweet-text">${linkifyText(quoteText)}</div>` : ''}
+                    ${quoteText ? `<div class="tweet-text tweet-text-open" onclick="onTweetTextOpen(event, '${tweet.id}')">${linkifyText(quoteText)}</div>` : ''}
                     ${translateBtnHtml(tweet.id)}
                     ${renderTweetMedia(tweet.media, tweet.id)}
                     ${renderNestedCard(quotedTweet)}
@@ -1241,7 +1291,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
         return `
             <div class="tweet-item">
                 ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
-                <div class="tweet-text">${linkifyText(tweet.text)}</div>
+                <div class="tweet-text tweet-text-open" onclick="onTweetTextOpen(event, '${tweet.id}')">${linkifyText(tweet.text)}</div>
                 ${translateBtnHtml(tweet.id)}
                 ${renderTweetMedia(tweet.media, tweet.id)}
                 ${renderTweetStats(tweet.stats)}
@@ -1534,6 +1584,222 @@ function closeLightbox() {
     }
 }
 
+function hideAllMainViews() {
+    homeView.classList.add('hidden');
+    profileView.classList.add('hidden');
+    tweetDetailView.classList.add('hidden');
+    followingView.classList.add('hidden');
+    followersView.classList.add('hidden');
+}
+
+function onTweetTextOpen(event, tweetId) {
+    if (event.target.closest('a')) return;
+    navigateToTweetDetail(tweetId);
+}
+
+function navigateToTweetDetail(tweetId) {
+    if (!tweetId) return;
+    const url = new URL(window.location);
+    url.searchParams.set('tweet', tweetId);
+    url.searchParams.set('view', 'tweet');
+    url.searchParams.delete('user');
+    url.searchParams.delete('t');
+    window.history.pushState({ view: 'tweet', tweetId }, '', url);
+    openTweetDetailView(tweetId, true);
+}
+
+function openTweetDetailView(tweetId, pushAlreadyDone = false) {
+    hideAllMainViews();
+    tweetDetailView.classList.remove('hidden');
+    backBtn.classList.remove('hidden');
+    headerTitle.textContent = 'Post';
+    document.getElementById('headerSubtitle').textContent = '';
+    currentView = 'tweet';
+    tweetDetailId = String(tweetId);
+    tweetDetailCursor = '';
+    tweetDetailReplies = [];
+    tweetDetailLoadedReplyIds = new Set();
+    hasMoreTweetReplies = true;
+    hideAllPaginationFooters();
+
+    if (!pushAlreadyDone) {
+        const url = new URL(window.location);
+        url.searchParams.set('tweet', tweetDetailId);
+        url.searchParams.set('view', 'tweet');
+        url.searchParams.delete('user');
+        url.searchParams.delete('t');
+        window.history.replaceState({ view: 'tweet', tweetId: tweetDetailId }, '', url);
+    }
+
+    document.getElementById('tweetDetailThread').innerHTML = '<div class="loading">Loading post...</div>';
+    document.getElementById('tweetDetailReplies').innerHTML = '';
+    loadTweetDetail(tweetDetailId);
+}
+
+async function loadTweetDetail(tweetId, cursor = '') {
+    if (isLoadingTweetDetail) return;
+    isLoadingTweetDetail = true;
+    if (cursor) refreshCurrentPaginationFooter();
+
+    try {
+        let url = `${API_BASE}/api/tweet/${encodeURIComponent(tweetId)}`;
+        if (cursor) {
+            url += `?cursor=${encodeURIComponent(cursor)}`;
+        }
+
+        const response = await fetch(url);
+        let result;
+        try {
+            result = await response.json();
+        } catch (parseErr) {
+            throw new Error('Unable to load this post.');
+        }
+
+        if (!result.success || !result.data) {
+            const message = formatApiError(result.error, 'Unable to load this post.');
+            if (!cursor) {
+                document.getElementById('tweetDetailThread').innerHTML =
+                    `<div class="tweet-detail-error">${escapeHtml(message)}</div>`;
+                document.getElementById('tweetDetailReplies').innerHTML = '';
+            } else {
+                showToast(message, 'error');
+            }
+            hasMoreTweetReplies = false;
+            return;
+        }
+
+        const { focal, ancestors, replies, cursor: nextCursor } = result.data;
+
+        if (!cursor) {
+            renderTweetDetailThread(focal, ancestors || []);
+            tweetDetailReplies = [];
+            tweetDetailLoadedReplyIds = new Set();
+        }
+
+        const newReplies = (replies || []).filter((t) => t && !tweetDetailLoadedReplyIds.has(t.id));
+        newReplies.forEach((t) => tweetDetailLoadedReplyIds.add(t.id));
+        tweetDetailReplies = tweetDetailReplies.concat(newReplies);
+        renderTweetDetailReplies(newReplies, Boolean(cursor));
+
+        tweetDetailCursor = nextCursor || '';
+        hasMoreTweetReplies =
+            Boolean(tweetDetailCursor) &&
+            tweetDetailCursor !== '' &&
+            !tweetDetailCursor.startsWith('0|');
+    } catch (error) {
+        console.error('Error loading tweet detail:', error);
+        const message = formatApiError(error.message, 'Unable to load this post.');
+        if (!cursor) {
+            document.getElementById('tweetDetailThread').innerHTML =
+                `<div class="tweet-detail-error">${escapeHtml(message)}</div>`;
+        } else {
+            showToast(message, 'error');
+        }
+        hasMoreTweetReplies = false;
+    } finally {
+        isLoadingTweetDetail = false;
+        refreshCurrentPaginationFooter();
+    }
+}
+
+function renderTweetDetailAuthorHeader(tweet, avatarClass = 'tweet-avatar') {
+    const name = tweet.user_name || '';
+    const handle = tweet.screen_name || '';
+    const avatar = tweet.profile_image_url || '';
+    const date = tweet.created_at || '';
+    return `
+        <div class="tweet-header">
+            <img class="${avatarClass}" src="${proxyUrl(avatar)}" alt=""
+                onclick="event.stopPropagation(); navigateToProfile('${handle}')">
+            <div class="tweet-author" onclick="event.stopPropagation(); navigateToProfile('${handle}')">
+                <span class="tweet-author-name">${escapeHtml(name)}</span>
+                <span class="tweet-author-handle">@${handle}</span>
+            </div>
+            <span class="tweet-date">${formatDate(date)}</span>
+        </div>
+    `;
+}
+
+function renderTweetDetailBody(tweet, openOnText = false) {
+    const openClass = openOnText ? ' tweet-text-open' : '';
+    const openHandler = openOnText
+        ? ` onclick="onTweetTextOpen(event, '${tweet.id}')"`
+        : '';
+    return `
+        ${renderTweetDetailAuthorHeader(tweet)}
+        <div class="tweet-text${openClass}"${openHandler}>${linkifyText(tweet.text)}</div>
+        <div class="tweet-translate-area" id="translate-detail-${tweet.id}" onclick="event.stopPropagation()">
+            <button class="translate-btn" onclick="event.stopPropagation(); translateTweet('${tweet.id}', this)">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12.651 15.32l-1.997-3.769c-.471-.887-.7-1.327-.7-1.751 0-.613.478-1.05 1.096-1.05.532 0 .988.389 1.09.904l.022.166h.03l-.022-.166C12.078 9.385 11.478 8 9.749 8 8.525 8 7.5 8.95 7.5 10.2c0 .657.268 1.173.688 1.959l.022.041 1.997 3.769-2.615 4.937c-.471.887-.7 1.327-.7 1.751 0 .613.478 1.05 1.096 1.05.532 0 .988-.389 1.09-.904l.022-.166h.03l-.022.166c.092.369.692 1.754 2.421 1.754 1.224 0 2.249-.95 2.249-2.2 0-.657-.268-1.173-.688-1.959l-.022-.041-1.997-3.769zm9.349-7.32h-5v-2h-2v2h-5v2h8.899l-2.3 4.6 1.789.894 2.655-5.311.057-.183h.7v-2z"></path></svg>
+                翻译
+            </button>
+            <div class="tweet-translation hidden"></div>
+        </div>
+        <div onclick="event.stopPropagation()">${renderTweetMedia(tweet.media, tweet.id)}</div>
+    `;
+}
+
+function renderTweetDetailThread(focal, ancestors) {
+    const threadEl = document.getElementById('tweetDetailThread');
+    if (!focal) {
+        threadEl.innerHTML = '<div class="tweet-detail-error">Unable to load this post.</div>';
+        return;
+    }
+
+    const ancestorHtml = (ancestors || [])
+        .map(
+            (tweet) => `
+        <div class="tweet-detail-row is-ancestor">
+            <div class="tweet-detail-rail" aria-hidden="true"></div>
+            <div class="tweet-detail-row-body">
+                ${renderTweetDetailBody(tweet, true)}
+            </div>
+        </div>`
+        )
+        .join('');
+
+    const focalHtml = `
+        <div class="tweet-detail-row is-focal">
+            ${ancestors.length ? '<div class="tweet-detail-rail" aria-hidden="true"></div>' : ''}
+            <div class="tweet-detail-row-body">
+                ${renderTweetDetailBody(focal, false)}
+            </div>
+        </div>
+    `;
+
+    threadEl.innerHTML = ancestorHtml + focalHtml;
+}
+
+function renderTweetDetailReplies(newReplies, append) {
+    const list = document.getElementById('tweetDetailReplies');
+    if (!append) {
+        list.innerHTML = '';
+    }
+    if (!newReplies || newReplies.length === 0) {
+        if (!append && tweetDetailReplies.length === 0) {
+            list.innerHTML = '<div class="loading" style="padding:16px">No replies yet</div>';
+        }
+        return;
+    }
+
+    const html = newReplies
+        .map(
+            (tweet) => `
+        <div class="tweet-detail-row is-reply">
+            <div class="tweet-detail-row-body">
+                ${renderTweetDetailBody(tweet, true)}
+            </div>
+        </div>`
+        )
+        .join('');
+
+    if (append) {
+        list.insertAdjacentHTML('beforeend', html);
+    } else {
+        list.innerHTML = html;
+    }
+}
+
 /**
  * Navigate to following page with URL update
  */
@@ -1555,6 +1821,7 @@ function navigateToProfile(screenName) {
     homeView.classList.add('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
+    tweetDetailView.classList.add('hidden');
     profileView.classList.remove('hidden');
     backBtn.classList.remove('hidden');
     currentView = 'profile';
@@ -1582,6 +1849,8 @@ function navigateToProfile(screenName) {
     const url = new URL(window.location);
     url.searchParams.set('user', screenName);
     url.searchParams.delete('view');
+    url.searchParams.delete('tweet');
+    url.searchParams.delete('t');
     window.history.pushState({ view: 'profile', user: screenName }, '', url);
     
     loadUserProfile(screenName);
@@ -1596,6 +1865,7 @@ async function showFollowing(screenName) {
         followersView.classList.add('hidden');
         homeView.classList.add('hidden');
         profileView.classList.add('hidden');
+        tweetDetailView.classList.add('hidden');
         
         document.getElementById('followingTitle').textContent = `People @${screenName} follows`;
         followingScreenName = screenName;
@@ -1764,6 +2034,7 @@ async function showFollowers(screenName) {
         followingView.classList.add('hidden');
         homeView.classList.add('hidden');
         profileView.classList.add('hidden');
+        tweetDetailView.classList.add('hidden');
         
         document.getElementById('followersTitle').textContent = `Followers of @${screenName}`;
         followersScreenName = screenName;
@@ -2049,15 +2320,19 @@ window.addEventListener('popstate', (event) => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get('view');
     const user = params.get('user');
+    const tweetParam = params.get('tweet') || params.get('t');
     
     if (view === 'following' && user) {
         showFollowing(user);
     } else if (view === 'followers' && user) {
         showFollowers(user);
+    } else if (view === 'tweet' && tweetParam) {
+        openTweetDetailView(tweetParam, true);
     } else if (user) {
         // Go back to profile view
         followingView.classList.add('hidden');
         followersView.classList.add('hidden');
+        tweetDetailView.classList.add('hidden');
         profileView.classList.remove('hidden');
         homeView.classList.add('hidden');
         
