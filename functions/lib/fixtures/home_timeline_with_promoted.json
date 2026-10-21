@@ -1,0 +1,111 @@
+{
+  "data": {
+    "home": {
+      "home_timeline_urt": {
+        "instructions": [
+          {
+            "type": "TimelineAddEntries",
+            "entries": [
+              {
+                "entryId": "tweet-1",
+                "content": {
+                  "entryType": "TimelineTimelineItem",
+                  "itemContent": {
+                    "itemType": "TimelineTweet",
+                    "tweet_results": {
+                      "result": {
+                        "rest_id": "999",
+                        "legacy": {
+                          "full_text": "Organic home tweet",
+                          "created_at": "Mon Jan 01 00:00:00 +0000 2020",
+                          "favorite_count": 1,
+                          "retweet_count": 0,
+                          "reply_count": 0,
+                          "quote_count": 0
+                        },
+                        "core": {
+                          "user_results": {
+                            "result": {
+                              "rest_id": "123",
+                              "core": {
+                                "name": "Author",
+                                "screen_name": "author"
+                              },
+                              "legacy": {
+                                "profile_image_url_https": "https://pbs.twimg.com/profile_normal/a.jpg"
+                              }
+                            }
+                          }
+                        },
+                        "views": { "count": "10" }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "entryId": "promoted-tweet-888777",
+                "content": {
+                  "entryType": "TimelineTimelineItem",
+                  "itemContent": {
+                    "itemType": "TimelineTweet",
+                    "promotedMetadata": {
+                      "advertiser_results": {
+                        "result": {
+                          "rest_id": "adco"
+                        }
+                      },
+                      "disclosureType": "POLITICAL",
+                      "experimentValues": [],
+                      "impressionId": "imp-1",
+                      "impressionString": "promoted"
+                    },
+                    "tweet_results": {
+                      "result": {
+                        "rest_id": "888777",
+                        "promotedMetadata": {
+                          "impressionId": "imp-1"
+                        },
+                        "legacy": {
+                          "full_text": "Sponsored tweet you should not see",
+                          "created_at": "Mon Jan 02 00:00:00 +0000 2020",
+                          "favorite_count": 0,
+                          "retweet_count": 0,
+                          "reply_count": 0,
+                          "quote_count": 0
+                        },
+                        "core": {
+                          "user_results": {
+                            "result": {
+                              "rest_id": "adco",
+                              "core": {
+                                "name": "Advertiser",
+                                "screen_name": "adbrand"
+                              },
+                              "legacy": {
+                                "profile_image_url_https": "https://pbs.twimg.com/profile_normal/ad.jpg"
+                              }
+                            }
+                          }
+                        },
+                        "views": { "count": "1" }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "entryId": "cursor-bottom",
+                "content": {
+                  "entryType": "TimelineTimelineCursor",
+                  "cursorType": "Bottom",
+                  "value": "cursor-after-ads"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

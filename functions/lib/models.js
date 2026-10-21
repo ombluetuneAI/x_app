@@ -151,7 +151,11 @@ export function mediaFromDict(data) {
 export function tweetFromDict(data) {
   let result = data?.result ?? data;
   if (!result) return null;
-  if (result.tweet) result = result.tweet;
+  if (result.promotedMetadata) return null;
+  if (result.tweet) {
+    if (result.tweet.promotedMetadata) return null;
+    result = result.tweet;
+  }
 
   const legacy = result.legacy || {};
   const core = result.core || {};
