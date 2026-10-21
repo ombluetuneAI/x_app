@@ -13,6 +13,7 @@ export function safeGet(data, ...keys) {
 
 export function getInstructions(data) {
   const paths = [
+    ['data', 'threaded_conversation_with_injections_v2', 'instructions'],
     ['data', 'user', 'result', 'timeline_v2', 'timeline', 'instructions'],
     ['data', 'user', 'result', 'timeline', 'timeline', 'instructions'],
     ['data', 'list', 'members_timeline', 'timeline', 'instructions'],
@@ -123,6 +124,115 @@ export function parseTweets(data) {
   }
   const nextCursor = getNextCursor(entries);
   return { tweets, nextCursor };
+}
+
+function tweetFromTimelineItem(item) {
+  const itemContent = item?.item?.itemContent || item?.itemContent || item;
+  const tweetResults = itemContent?.tweet_results;
+  if (!tweetResults) return null;
+  return tweetFromDict(tweetResults);
+}
+
+/**
+ * Parse TweetDetail GraphQL response into focal tweet, ancestor thread, and replies.
+ * @param {object} data - Raw GraphQL JSON
+ * @param {string} [focalTweetId] - Expected focal tweet id
+ */
+export function parseTweetDetail(data, focalTweetId = '') {
+  const instructions = safeGet(
+    data,
+    'data',
+    'threaded_conversation_with_injections_v2',
+    'instructions'
+  );
+  const entries = instructions ? getEntries(instructions) : [];
+  const nextCursor = getNextCursor(entries);
+  const focalId = String(focalTweetId || '');
+  const ancestors = [];
+  const replies = [];
+  let focalTweet = null;
+  const seenIds = new Set();
+
+  function rememberTweet(tweet, bucket) {
+    if (!tweet || seenIds.has(tweet.id)) return;
+    seenIds.add(tweet.id);
+    bucket.push(tweet);
+  }
+
+  function assignFocal(tweet) {
+    if (!tweet) return;
+    if (!focalId || tweet.id === focalId) {
+      focalTweet = tweet;
+      seenIds.add(tweet.id);
+    }
+  }
+
+  for (const entry of entries) {
+    const content = entry.content || {};
+    const entryType = content.entryType || '';
+    const entryId = entry.entryId || '';
+
+    if (entryType === 'TimelineTimelineCursor') continue;
+
+    if (entryType === 'TimelineTimelineModule') {
+      const displayType = content.displayType || '';
+      const isConversation =
+        displayType === 'VerticalConversation' || entryId.startsWith('conversationthread-');
+      const moduleTweets = [];
+      for (const item of content.items || []) {
+        const tweet = tweetFromTimelineItem(item);
+        if (tweet) moduleTweets.push(tweet);
+      }
+      if (isConversation) {
+        for (const tweet of moduleTweets) {
+          if (focalId && tweet.id === focalId) {
+            assignFocal(tweet);
+          } else {
+            rememberTweet(tweet, ancestors);
+          }
+        }
+      } else {
+        for (const tweet of moduleTweets) {
+          if (focalId && tweet.id === focalId) assignFocal(tweet);
+          else rememberTweet(tweet, replies);
+        }
+      }
+      continue;
+    }
+
+    if (entryType === 'TimelineTimelineItem') {
+      const tweet = tweetFromTimelineItem(content);
+      if (!tweet) continue;
+      if (focalId && (tweet.id === focalId || entryId === `tweet-${focalId}`)) {
+        assignFocal(tweet);
+      } else if (!focalTweet && entryId.startsWith('tweet-') && !focalId) {
+        assignFocal(tweet);
+      } else {
+        rememberTweet(tweet, replies);
+      }
+    }
+  }
+
+  if (focalTweet) {
+    const focalIdx = ancestors.findIndex((t) => t.id === focalTweet.id);
+    if (focalIdx >= 0) ancestors.splice(focalIdx, 1);
+    const replyIdx = replies.findIndex((t) => t.id === focalTweet.id);
+    if (replyIdx >= 0) replies.splice(replyIdx, 1);
+  }
+
+  if (!focalTweet && focalId) {
+    for (const entry of entries) {
+      const content = entry.content || {};
+      if (content.entryType !== 'TimelineTimelineItem') continue;
+      const tweet = tweetFromTimelineItem(content);
+      if (tweet && tweet.id === focalId) {
+        focalTweet = tweet;
+        break;
+      }
+    }
+  }
+
+  return { tweet: focalTweet, ancestors, replies, nextCursor };
 }
 
 export function parseMediaList(data) {

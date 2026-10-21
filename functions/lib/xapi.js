@@ -1,12 +1,31 @@
-import { APIEndpoints, Features, buildGraphqlParams } from './constants.js';
-import { createHttpClient } from './http.js';
+import {
+  APIEndpoints,
+  Features,
+  buildGraphqlParams,
+  buildTweetDetailVariables,
+  getTweetDetailEndpoint,
+} from './constants.js';
+import { createHttpClient, XHttpError } from './http.js';
 import {
   parseUserByScreenName,
   parseUsersFromTimeline,
   parseTweets,
+  parseTweetDetail,
   parseMediaList,
 } from './parsers.js';
 import { userFromV1Dict } from './models.js';
+
+function assertNoGraphqlErrors(data) {
+  const errors = data?.errors;
+  if (!errors || !errors.length) return;
+  const first = errors[0];
+  const message =
+    first?.message ||
+    first?.extensions?.code ||
+    errors.map((e) => e.message).filter(Boolean).join('; ') ||
+    'GraphQL request failed';
+  throw new XHttpError(400, message, data);
+}
 
 const FRIENDSHIP_FORM = {
   include_profile_interstitial_type: 1,
@@ -78,6 +97,19 @@ export function createXApi(env) {
       );
       const data = await http.get(APIEndpoints.USER_TWEETS, params);
       return parseTweets(data);
+    },
+
+    async getTweetDetail(tweetId, { cursor = '' } = {}) {
+      const variables = buildTweetDetailVariables(tweetId, cursor);
+      const params = buildGraphqlParams(
+        variables,
+        Features.TWEET_DETAIL,
+        Features.FIELD_TOGGLES_WITH_ARTICLE
+      );
+      const endpoint = getTweetDetailEndpoint(env);
+      const data = await http.get(endpoint, params);
+      assertNoGraphqlErrors(data);
+      return parseTweetDetail(data, tweetId);
     },
 
     async getUserMedia(userId, { count = 50, cursor = '' }) {

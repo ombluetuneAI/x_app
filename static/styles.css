@@ -865,6 +865,62 @@ body {
     opacity: 0.8;
 }
 
+.tweet-item-clickable {
+    cursor: pointer;
+}
+
+.tweet-detail-thread {
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tweet-detail-thread::before {
+    content: '';
+    position: absolute;
+    left: 31px;
+    top: 48px;
+    bottom: 0;
+    width: 2px;
+    background-color: var(--border-color);
+    pointer-events: none;
+}
+
+.tweet-detail-ancestor .tweet-avatar {
+    width: 36px;
+    height: 36px;
+}
+
+.tweet-detail-ancestor .tweet-item {
+    border-bottom: none;
+    padding-bottom: 4px;
+}
+
+.tweet-detail-focal-wrap {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tweet-detail-focal .tweet-text {
+    font-size: 17px;
+    line-height: 1.35;
+}
+
+.tweet-detail-replies-label {
+    padding: 12px 16px 8px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tweet-detail-replies .tweet-avatar {
+    width: 32px;
+    height: 32px;
+}
+
+.tweet-detail-replies .tweet-item {
+    padding-left: 12px;
+}
+
 /* Following List */
 .following-header {
     padding: 16px;

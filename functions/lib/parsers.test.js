@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { parseUserByScreenName, parseTweets, getNextCursor, getEntries } from './parsers.js';
+import {
+  parseUserByScreenName,
+  parseTweets,
+  parseTweetDetail,
+  getNextCursor,
+  getEntries,
+} from './parsers.js';
+import { buildTweetDetailVariables } from './constants.js';
 import { userToDict, tweetToDict } from './models.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -21,6 +28,34 @@ test('parseUserByScreenName extracts screen name and id', () => {
   assert.equal(user.id, '1234567890');
   const dict = userToDict(user);
   assert.equal(dict.stats.followers_count, 42);
+});
+
+test('buildTweetDetailVariables includes required withBirdwatchNotes', () => {
+  const vars = buildTweetDetailVariables('12345');
+  assert.equal(vars.focalTweetId, '12345');
+  assert.equal(vars.withBirdwatchNotes, false);
+  assert.equal(vars.withV2Timeline, true);
+  assert.equal(vars.withVoice, true);
+  assert.equal(vars.withCommunity, true);
+  assert.equal(vars.rankingMode, 'Relevance');
+  assert.equal(vars.cursor, undefined);
+  const withCursor = buildTweetDetailVariables('12345', 'abc');
+  assert.equal(withCursor.cursor, 'abc');
+});
+
+test('parseTweetDetail extracts ancestors, focal tweet, replies, and cursor', () => {
+  const data = loadFixture('tweet_detail.json');
+  const { tweet, ancestors, replies, nextCursor } = parseTweetDetail(data, '200');
+  assert.ok(tweet);
+  assert.equal(tweet.id, '200');
+  assert.equal(tweet.text, 'Focal tweet text for detail view');
+  assert.equal(ancestors.length, 2);
+  assert.equal(ancestors[0].id, '100');
+  assert.equal(ancestors[1].id, '101');
+  assert.equal(replies.length, 2);
+  assert.equal(replies[0].id, '201');
+  assert.equal(replies[1].id, '202');
+  assert.equal(nextCursor, 'reply-cursor-page-2');
 });
 
 test('parseTweets extracts tweet text and cursor', () => {

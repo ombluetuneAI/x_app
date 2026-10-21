@@ -318,6 +318,16 @@ let hasMorePosts = true;
 let loadedMediaIds = new Set();
 let loadedTweetIds = new Set();
 
+// Post detail state
+let currentTweetId = '';
+let postDetailCursor = '';
+let postAncestors = [];
+let postFocalTweet = null;
+let postReplies = [];
+let loadedPostReplyIds = new Set();
+let isLoadingPostDetail = false;
+let hasMorePostReplies = true;
+
 // Tweet media lightbox state
 let tweetLightboxMedia = [];  // Media array for current tweet lightbox
 let isTweetLightbox = false;   // Whether lightbox is showing tweet media (vs profile media grid)
@@ -362,6 +372,14 @@ const PAGINATION_FOOTERS = {
             loading: isLoadingFollowers,
             hasMore: hasMoreFollowers,
             hasContent: allFollowersUsers.length > 0,
+        }),
+    },
+    postReplies: {
+        id: 'postRepliesPaginationFooter',
+        getState: () => ({
+            loading: isLoadingPostDetail,
+            hasMore: hasMorePostReplies,
+            hasContent: postReplies.length > 0,
         }),
     },
 };
@@ -418,6 +436,7 @@ function getCurrentPaginationKey() {
         if (currentTab === 'posts') return 'posts';
         if (currentTab === 'media') return 'media';
     }
+    if (currentView === 'post') return 'postReplies';
     return null;
 }
 
@@ -444,6 +463,7 @@ const homeView = document.getElementById('homeView');
 const profileView = document.getElementById('profileView');
 const followingView = document.getElementById('followingView');
 const followersView = document.getElementById('followersView');
+const postView = document.getElementById('postView');
 const backBtn = document.getElementById('backBtn');
 const headerTitle = document.getElementById('headerTitle');
 
@@ -461,8 +481,10 @@ document.addEventListener('DOMContentLoaded', () => {
         history.replaceState({ _anchor: true, view: 'home' }, '', window.location.href);
     }
     
-    // Load appropriate view based on URL
-    if (view === 'following' && screenName) {
+    const tweetId = params.get('tweet');
+    if (tweetId) {
+        showTweetDetail(tweetId, { updateHistory: false });
+    } else if (view === 'following' && screenName) {
         showFollowing(screenName);
     } else if (view === 'followers' && screenName) {
         showFollowers(screenName);
@@ -490,6 +512,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     backBtn.addEventListener('click', goBack);
+
+    document.addEventListener('click', (event) => {
+        const item = event.target.closest('.tweet-item[data-tweet-open-id]');
+        if (!item) return;
+        if (event.target.closest('a, .tweet-avatar, .tweet-author, .tweet-translate-area, .translate-btn, .tweet-media, .tweet-media-item, .tweet-nested-card')) {
+            return;
+        }
+        const id = item.dataset.tweetOpenId;
+        if (id) navigateToTweet(id);
+    });
     
     // Tab click handlers (profile tabs)
     document.querySelectorAll('.tab').forEach(tab => {
@@ -513,6 +545,7 @@ function showHome() {
     profileView.classList.add('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
+    postView.classList.add('hidden');
     backBtn.classList.add('hidden');
     headerTitle.textContent = 'Home';
     currentView = 'home';
@@ -521,6 +554,7 @@ function showHome() {
     const url = new URL(window.location);
     url.searchParams.delete('user');
     url.searchParams.delete('view');
+    url.searchParams.delete('tweet');
     window.history.replaceState({ view: 'home' }, '', url);
     
     // Load home feed if not already loaded
@@ -914,6 +948,16 @@ function setupInfiniteScroll() {
         const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
         const cursor = currentTab === 'media' ? mediaCursor : tweetsCursor;
         
+        if (currentView === 'post') {
+            if (!hasMorePostReplies || isLoadingPostDetail) return;
+            if (distanceToBottom < threshold && distanceToBottom > -100 && postDetailCursor) {
+                lastTriggerTime = now;
+                loadTweetDetail(currentTweetId, postDetailCursor);
+            }
+            refreshCurrentPaginationFooter();
+            return;
+        }
+
         // Profile tabs (posts / media)
         if (currentView !== 'profile') return;
         
@@ -1034,6 +1078,7 @@ function renderProfile(data) {
     profileView.classList.remove('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
+    postView.classList.add('hidden');
     currentView = 'profile';
     backBtn.classList.remove('hidden');
     
@@ -1117,13 +1162,36 @@ function renderTweetMedia(media, tweetId) {
 /**
  * Render tweets list
  */
-function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
+function formatApiError(result) {
+    const raw = result?.error || '';
+    if (!raw) return '加载失败，请稍后重试';
+    if (raw.startsWith('{') || raw.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (parsed.errors?.length) {
+                return parsed.errors[0].message || '无法加载内容';
+            }
+        } catch (e) {
+            /* ignore */
+        }
+    }
+    if (raw.length > 160) return '无法加载内容，请稍后重试';
+    return raw;
+}
+
+function renderTweetsList(tweets, replace = true, containerId = 'tweetsList', options = {}) {
     const list = document.getElementById(containerId);
+    const { clickable = true, itemClass = 'tweet-item', emptyMessage = 'No posts found' } = options;
     
     if (!tweets || tweets.length === 0) {
-        if (replace) list.innerHTML = '<div class="loading">No posts found</div>';
+        if (replace) list.innerHTML = `<div class="loading">${emptyMessage}</div>`;
         return;
     }
+
+    const itemAttrs = (openId) => {
+        if (!clickable || !openId) return `class="${itemClass}"`;
+        return `class="${itemClass} tweet-item-clickable" data-tweet-open-id="${openId}"`;
+    };
     
     const retweetIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 3.88l4.432 4.14-1.364 1.46L5.5 7.55V16c0 1.1.896 2 2 2H13v2H7.5c-2.209 0-4-1.79-4-4V7.55L1.432 9.48.068 8.02 4.5 3.88zM16.5 6H11V4h5.5c2.209 0 4 1.79 4 4v8.45l2.068-1.93 1.364 1.46-4.432 4.14-4.432-4.14 1.364-1.46 2.068 1.93V8c0-1.1-.896-2-2-2z"></path></svg>';
     
@@ -1203,7 +1271,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
             }
             
             return `
-                <div class="tweet-item">
+                <div ${itemAttrs(displayTweet.id)}>
                     <div class="tweet-retweet-label">
                         ${retweetIcon}
                         ${escapeHtml(retweeterName)} 转发了
@@ -1226,7 +1294,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
             }
             
             return `
-                <div class="tweet-item">
+                <div ${itemAttrs(tweet.id)}>
                     ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
                     ${quoteText ? `<div class="tweet-text">${linkifyText(quoteText)}</div>` : ''}
                     ${translateBtnHtml(tweet.id)}
@@ -1239,7 +1307,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
         
         // === Normal tweet ===
         return `
-            <div class="tweet-item">
+            <div ${itemAttrs(tweet.id)}>
                 ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
                 <div class="tweet-text">${linkifyText(tweet.text)}</div>
                 ${translateBtnHtml(tweet.id)}
@@ -1535,6 +1603,142 @@ function closeLightbox() {
 }
 
 /**
+ * Navigate to in-app tweet detail (thread + replies)
+ */
+function navigateToTweet(tweetId) {
+    const url = new URL(window.location);
+    url.searchParams.set('tweet', tweetId);
+    window.history.pushState({ view: 'post', tweet: tweetId }, '', url);
+    showTweetDetail(tweetId, { updateHistory: false });
+}
+
+/**
+ * Show tweet detail view
+ */
+function showTweetDetail(tweetId, { updateHistory = true } = {}) {
+    currentTweetId = String(tweetId);
+    homeView.classList.add('hidden');
+    profileView.classList.add('hidden');
+    followingView.classList.add('hidden');
+    followersView.classList.add('hidden');
+    postView.classList.remove('hidden');
+    backBtn.classList.remove('hidden');
+    headerTitle.textContent = 'Post';
+    document.getElementById('headerSubtitle').textContent = '';
+    currentView = 'post';
+
+    if (updateHistory) {
+        const url = new URL(window.location);
+        url.searchParams.set('tweet', currentTweetId);
+        window.history.pushState({ view: 'post', tweet: currentTweetId }, '', url);
+    }
+
+    postDetailCursor = '';
+    postAncestors = [];
+    postFocalTweet = null;
+    postReplies = [];
+    loadedPostReplyIds = new Set();
+    hasMorePostReplies = true;
+
+    document.getElementById('postThread').innerHTML = '<div class="loading">Loading...</div>';
+    document.getElementById('postFocal').innerHTML = '';
+    document.getElementById('postRepliesList').innerHTML = '';
+
+    loadTweetDetail(currentTweetId);
+}
+
+async function loadTweetDetail(tweetId, cursor = '') {
+    if (isLoadingPostDetail) return;
+    isLoadingPostDetail = true;
+    if (cursor) refreshCurrentPaginationFooter();
+
+    try {
+        let url = `${API_BASE}/api/tweet/${tweetId}`;
+        if (cursor) url += `?cursor=${encodeURIComponent(cursor)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.success) {
+            const { tweet, ancestors, replies, cursor: nextCursor } = result.data;
+            postDetailCursor = nextCursor || '';
+            hasMorePostReplies =
+                !!postDetailCursor &&
+                !postDetailCursor.startsWith('0|');
+
+            if (!cursor) {
+                postAncestors = ancestors || [];
+                postFocalTweet = tweet;
+                postReplies = [];
+                loadedPostReplyIds = new Set();
+                renderPostDetailPage();
+            }
+
+            const newReplies = (replies || []).filter((t) => !loadedPostReplyIds.has(t.id));
+            newReplies.forEach((t) => loadedPostReplyIds.add(t.id));
+
+            if (!cursor) {
+                postReplies = newReplies;
+                renderTweetsList(newReplies, true, 'postRepliesList', {
+                    clickable: true,
+                    itemClass: 'tweet-item tweet-detail-reply',
+                    emptyMessage: 'No replies yet',
+                });
+            } else if (newReplies.length > 0) {
+                postReplies = postReplies.concat(newReplies);
+                renderTweetsList(newReplies, false, 'postRepliesList', {
+                    clickable: true,
+                    itemClass: 'tweet-item tweet-detail-reply',
+                });
+            }
+
+            if (cursor && newReplies.length === 0) {
+                hasMorePostReplies = false;
+            }
+        } else if (!cursor) {
+            const message = formatApiError(result);
+            document.getElementById('postThread').innerHTML = `<div class="error">${escapeHtml(message)}</div>`;
+            document.getElementById('postFocal').innerHTML = '';
+            document.getElementById('postRepliesList').innerHTML = '';
+            hasMorePostReplies = false;
+        } else {
+            hasMorePostReplies = false;
+        }
+    } catch (error) {
+        console.error('Error loading tweet detail:', error);
+        if (!cursor) {
+            document.getElementById('postThread').innerHTML =
+                '<div class="error">Failed to load post</div>';
+        }
+        hasMorePostReplies = false;
+    } finally {
+        isLoadingPostDetail = false;
+        refreshCurrentPaginationFooter();
+    }
+}
+
+function renderPostDetailPage() {
+    const threadEl = document.getElementById('postThread');
+    if (postAncestors.length > 0) {
+        threadEl.className = 'tweet-detail-thread';
+        renderTweetsList(postAncestors, true, 'postThread', {
+            clickable: true,
+            itemClass: 'tweet-item tweet-detail-ancestor',
+            emptyMessage: '',
+        });
+    } else {
+        threadEl.innerHTML = '';
+        threadEl.className = 'tweet-detail-thread';
+    }
+
+    if (postFocalTweet) {
+        renderTweetsList([postFocalTweet], true, 'postFocal', {
+            clickable: false,
+            itemClass: 'tweet-item tweet-detail-focal',
+        });
+    }
+}
+
+/**
  * Navigate to following page with URL update
  */
 function navigateToFollowing(screenName) {
@@ -1555,6 +1759,7 @@ function navigateToProfile(screenName) {
     homeView.classList.add('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
+    postView.classList.add('hidden');
     profileView.classList.remove('hidden');
     backBtn.classList.remove('hidden');
     currentView = 'profile';
@@ -1596,6 +1801,7 @@ async function showFollowing(screenName) {
         followersView.classList.add('hidden');
         homeView.classList.add('hidden');
         profileView.classList.add('hidden');
+        postView.classList.add('hidden');
         
         document.getElementById('followingTitle').textContent = `People @${screenName} follows`;
         followingScreenName = screenName;
@@ -1764,6 +1970,7 @@ async function showFollowers(screenName) {
         followingView.classList.add('hidden');
         homeView.classList.add('hidden');
         profileView.classList.add('hidden');
+        postView.classList.add('hidden');
         
         document.getElementById('followersTitle').textContent = `Followers of @${screenName}`;
         followersScreenName = screenName;
@@ -2049,8 +2256,11 @@ window.addEventListener('popstate', (event) => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get('view');
     const user = params.get('user');
-    
-    if (view === 'following' && user) {
+    const tweet = params.get('tweet');
+
+    if (tweet) {
+        showTweetDetail(tweet, { updateHistory: false });
+    } else if (view === 'following' && user) {
         showFollowing(user);
     } else if (view === 'followers' && user) {
         showFollowers(user);
@@ -2060,6 +2270,7 @@ window.addEventListener('popstate', (event) => {
         followersView.classList.add('hidden');
         profileView.classList.remove('hidden');
         homeView.classList.add('hidden');
+        postView.classList.add('hidden');
         
         if (currentUser) {
             headerTitle.textContent = currentUser.name;
