@@ -4,6 +4,16 @@
 
 const API_BASE = '';
 
+/** Client-side guard if promoted tweets slip through API responses. */
+function isPromotedApiTweet(tweet) {
+    if (!tweet) return false;
+    return tweet.is_promoted === true || tweet.promoted === true;
+}
+
+function withoutPromotedTweets(tweets) {
+    return (tweets || []).filter((t) => t && !isPromotedApiTweet(t));
+}
+
 /**
  * Proxy settings with defaults
  * Stored in localStorage as JSON
@@ -615,7 +625,7 @@ async function loadHomeTimeline(cursor = '') {
         const result = await response.json();
         
         if (result.success) {
-            const tweets = result.data.tweets;
+            const tweets = withoutPromotedTweets(result.data.tweets);
             const nextCursor = result.data.cursor || '';
             
             // Filter out already loaded tweets
@@ -783,7 +793,7 @@ async function loadUserTweets(screenName, cursor = '') {
         const result = await response.json();
         
         if (result.success) {
-            const tweets = result.data.tweets;
+            const tweets = withoutPromotedTweets(result.data.tweets);
             const nextCursor = result.data.cursor || '';
             
             // Filter out already loaded tweets
@@ -1671,12 +1681,15 @@ async function loadTweetDetail(tweetId, cursor = '') {
         const { focal, ancestors, replies, cursor: nextCursor } = result.data;
 
         if (!cursor) {
-            renderTweetDetailThread(focal, ancestors || []);
+            const safeFocal = isPromotedApiTweet(focal) ? null : focal;
+            renderTweetDetailThread(safeFocal, withoutPromotedTweets(ancestors || []));
             tweetDetailReplies = [];
             tweetDetailLoadedReplyIds = new Set();
         }
 
-        const newReplies = (replies || []).filter((t) => t && !tweetDetailLoadedReplyIds.has(t.id));
+        const newReplies = withoutPromotedTweets(replies || []).filter(
+            (t) => t && !tweetDetailLoadedReplyIds.has(t.id)
+        );
         newReplies.forEach((t) => tweetDetailLoadedReplyIds.add(t.id));
         tweetDetailReplies = tweetDetailReplies.concat(newReplies);
         renderTweetDetailReplies(newReplies, Boolean(cursor));

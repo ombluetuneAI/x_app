@@ -51,7 +51,7 @@ export function createXApi(env) {
     async getHomeTimeline({ count = 20, latest = false, cursor = '' }) {
       const variables = {
         count,
-        includePromotedContent: true,
+        includePromotedContent: false,
         latestControlAvailable: true,
         requestContext: 'launch',
         withVoice: true,
@@ -85,7 +85,7 @@ export function createXApi(env) {
       const variables = {
         userId: String(userId),
         count,
-        includePromotedContent: true,
+        includePromotedContent: false,
         withQuickPromoteEligibilityTweetFields: true,
         withVoice: true,
       };

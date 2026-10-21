@@ -74,3 +74,22 @@ test('parseTweets extracts tweet text and cursor', () => {
   assert.equal(getNextCursor(entries), nextCursor);
   assert.ok(tweetToDict(tweets[0]).stats);
 });
+
+test('parseTweets drops promoted timeline entries but keeps cursor', () => {
+  const data = loadFixture('home_timeline_with_promoted.json');
+  const { tweets, nextCursor } = parseTweets(data);
+  assert.equal(tweets.length, 1);
+  assert.equal(tweets[0].id, '999');
+  assert.equal(tweets[0].text, 'Organic home tweet');
+  assert.equal(nextCursor, 'cursor-after-ads');
+});
+
+test('parseTweetDetail drops promoted replies in conversation', () => {
+  const data = loadFixture('tweet_detail_with_promoted_reply.json');
+  const { focal, replies, nextCursor } = parseTweetDetail(data, '200');
+  assert.equal(focal?.id, '200');
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].id, '201');
+  assert.equal(replies[0].text, 'Organic reply item');
+  assert.equal(nextCursor, 'reply-cursor-clean');
+});

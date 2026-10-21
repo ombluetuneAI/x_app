@@ -1,3 +1,5 @@
+import { filterTimelineEntries } from './adFilter.js';
+import { isPromotedTimelineEntry, isPromotedItemContent } from './adFilter.js';
 import { userFromDict, mediaFromDict } from './models.js';
 import { tweetFromDict } from './models.js';
 
@@ -28,7 +30,7 @@ export function getInstructions(data) {
 export function getEntries(instructions) {
   for (const inst of instructions) {
     if (inst.type === 'TimelineAddEntries') {
-      return inst.entries || [];
+      return filterTimelineEntries(inst.entries || []);
     }
   }
   return [];
@@ -93,6 +95,8 @@ export function parseUsersFromTimeline(data) {
 }
 
 export function parseTweetsFromEntry(entry) {
+  if (isPromotedTimelineEntry(entry)) return [];
+
   const content = entry.content || {};
   const entryType = content.entryType || '';
   const tweets = [];
@@ -104,10 +108,15 @@ export function parseTweetsFromEntry(entry) {
   }
 
   if (entryType === 'TimelineTimelineItem') {
-    addFromTweetResults(content.itemContent?.tweet_results);
+    const itemContent = content.itemContent;
+    if (!isPromotedItemContent(itemContent)) {
+      addFromTweetResults(itemContent?.tweet_results);
+    }
   } else if (entryType === 'TimelineTimelineModule') {
     for (const item of content.items || []) {
-      addFromTweetResults(item.item?.itemContent?.tweet_results);
+      const itemContent = item.item?.itemContent;
+      if (isPromotedItemContent(itemContent)) continue;
+      addFromTweetResults(itemContent?.tweet_results);
     }
   }
   return tweets;
@@ -213,21 +222,25 @@ export function parseMediaList(data) {
     for (const inst of instructions) {
       const instType = inst.type || '';
       if (instType === 'TimelineAddEntries') {
-        const entries = inst.entries || [];
+        const entries = filterTimelineEntries(inst.entries || []);
         allEntries.push(...entries);
         for (const entry of entries) {
           const content = entry.content || {};
           if (content.entryType === 'TimelineTimelineModule') {
             for (const item of content.items || []) {
               const itemContent = item.item?.itemContent;
-              if (itemContent) itemContents.push(itemContent);
+              if (itemContent && !isPromotedItemContent(itemContent)) {
+                itemContents.push(itemContent);
+              }
             }
           }
         }
       } else if (instType === 'TimelineAddToModule') {
         for (const item of inst.moduleItems || []) {
           const itemContent = item.item?.itemContent;
-          if (itemContent) itemContents.push(itemContent);
+          if (itemContent && !isPromotedItemContent(itemContent)) {
+            itemContents.push(itemContent);
+          }
         }
       }
     }

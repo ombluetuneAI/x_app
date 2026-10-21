@@ -1,0 +1,129 @@
+{
+  "data": {
+    "threaded_conversation_with_injections_v2": {
+      "instructions": [
+        {
+          "type": "TimelineAddEntries",
+          "entries": [
+            {
+              "entryId": "tweet-200",
+              "content": {
+                "entryType": "TimelineTimelineItem",
+                "itemContent": {
+                  "itemType": "TimelineTweet",
+                  "tweet_results": {
+                    "result": {
+                      "rest_id": "200",
+                      "legacy": {
+                        "id_str": "200",
+                        "full_text": "Focal tweet body",
+                        "created_at": "Mon Jan 02 00:00:00 +0000 2020",
+                        "favorite_count": 2,
+                        "retweet_count": 0,
+                        "reply_count": 1,
+                        "quote_count": 0
+                      },
+                      "core": {
+                        "user_results": {
+                          "result": {
+                            "rest_id": "2",
+                            "core": { "name": "Focal", "screen_name": "focal" },
+                            "legacy": {
+                              "profile_image_url_https": "https://pbs.twimg.com/profile_normal/b.jpg"
+                            }
+                          }
+                        }
+                      },
+                      "views": { "count": "12" }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "entryId": "promoted-tweet-555444",
+              "content": {
+                "entryType": "TimelineTimelineItem",
+                "itemContent": {
+                  "itemType": "TimelineTweet",
+                  "promotedMetadata": {
+                    "impressionId": "reply-ad-1"
+                  },
+                  "tweet_results": {
+                    "result": {
+                      "rest_id": "555444",
+                      "legacy": {
+                        "id_str": "555444",
+                        "full_text": "Promoted reply injection",
+                        "created_at": "Mon Jan 03 00:00:00 +0000 2020",
+                        "favorite_count": 0,
+                        "retweet_count": 0,
+                        "reply_count": 0,
+                        "quote_count": 0
+                      },
+                      "core": {
+                        "user_results": {
+                          "result": {
+                            "rest_id": "99",
+                            "core": { "name": "Sponsor", "screen_name": "sponsor" },
+                            "legacy": {
+                              "profile_image_url_https": "https://pbs.twimg.com/profile_normal/s.jpg"
+                            }
+                          }
+                        }
+                      },
+                      "views": { "count": "0" }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "entryId": "tweet-201",
+              "content": {
+                "entryType": "TimelineTimelineItem",
+                "itemContent": {
+                  "itemType": "TimelineTweet",
+                  "tweet_results": {
+                    "result": {
+                      "rest_id": "201",
+                      "legacy": {
+                        "id_str": "201",
+                        "full_text": "Organic reply item",
+                        "created_at": "Mon Jan 04 00:00:00 +0000 2020",
+                        "favorite_count": 0,
+                        "retweet_count": 0,
+                        "reply_count": 0,
+                        "quote_count": 0
+                      },
+                      "core": {
+                        "user_results": {
+                          "result": {
+                            "rest_id": "3",
+                            "core": { "name": "Replier", "screen_name": "replier" },
+                            "legacy": {
+                              "profile_image_url_https": "https://pbs.twimg.com/profile_normal/c.jpg"
+                            }
+                          }
+                        }
+                      },
+                      "views": { "count": "1" }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "entryId": "cursor-bottom",
+              "content": {
+                "entryType": "TimelineTimelineCursor",
+                "cursorType": "Bottom",
+                "value": "reply-cursor-clean"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
