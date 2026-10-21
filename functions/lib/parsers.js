@@ -113,6 +113,81 @@ export function parseTweetsFromEntry(entry) {
   return tweets;
 }
 
+export function getTweetDetailInstructions(data) {
+  const paths = [
+    ['data', 'threaded_conversation_with_injections_v2', 'instructions'],
+    ['data', 'tweetDetail', 'instructions'],
+  ];
+  for (const path of paths) {
+    const instructions = safeGet(data, ...path);
+    if (instructions) return instructions;
+  }
+  return [];
+}
+
+/**
+ * Flatten tweet results from TweetDetail timeline entries in display order.
+ * @param {object[]} entries
+ * @returns {import('./models.js').Tweet[]}
+ */
+export function collectTweetsFromDetailEntries(entries) {
+  const tweets = [];
+  for (const entry of entries) {
+    const entryType = entry.content?.entryType || '';
+    if (entryType === 'TimelineTimelineCursor') continue;
+
+    for (const item of getItemContents(entry)) {
+      const tweetResults = item.tweet_results;
+      if (!tweetResults) continue;
+      const tweet = tweetFromDict(tweetResults);
+      if (tweet) tweets.push(tweet);
+    }
+  }
+  return tweets;
+}
+
+/**
+ * @param {object} data - TweetDetail GraphQL response
+ * @param {string} focalTweetId
+ * @param {{ continuation?: boolean }} [options]
+ */
+export function parseTweetDetail(data, focalTweetId, options = {}) {
+  const instructions = getTweetDetailInstructions(data);
+  const entries = getEntries(instructions);
+  const ordered = collectTweetsFromDetailEntries(entries);
+  const focalId = String(focalTweetId);
+  const nextCursor = getNextCursor(entries);
+
+  if (options.continuation) {
+    return {
+      focal: null,
+      ancestors: [],
+      replies: ordered,
+      nextCursor,
+    };
+  }
+
+  let focalIndex = ordered.findIndex((t) => t.id === focalId);
+  let focal = focalIndex >= 0 ? ordered[focalIndex] : null;
+
+  if (!focal) {
+    for (const entry of entries) {
+      if (entry.entryId === `tweet-${focalId}`) {
+        focal = collectTweetsFromDetailEntries([entry]).find((t) => t.id === focalId) || null;
+        if (focal && focalIndex < 0) {
+          focalIndex = ordered.findIndex((t) => t.id === focalId);
+        }
+        break;
+      }
+    }
+  }
+
+  const ancestors = focalIndex > 0 ? ordered.slice(0, focalIndex) : [];
+  const replies = focalIndex >= 0 ? ordered.slice(focalIndex + 1) : ordered.filter((t) => t.id !== focalId);
+
+  return { focal, ancestors, replies, nextCursor };
+}
+
 export function parseTweets(data) {
   const instructions = getInstructions(data);
   const entries = getEntries(instructions);

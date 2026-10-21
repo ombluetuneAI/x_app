@@ -1,4 +1,11 @@
-import { APIEndpoints, Features, buildGraphqlParams } from './constants.js';
+import {
+  APIEndpoints,
+  Features,
+  buildGraphqlParams,
+  buildTweetDetailVariables,
+  getTweetDetailEndpoint,
+} from './constants.js';
+import { parseTweetDetail } from './parsers.js';
 import { createHttpClient } from './http.js';
 import {
   parseUserByScreenName,
@@ -60,6 +67,18 @@ export function createXApi(env) {
       );
       const data = await http.get(endpoint, params);
       return parseTweets(data);
+    },
+
+    async getTweetDetail(focalTweetId, { cursor = '' } = {}) {
+      const variables = buildTweetDetailVariables(focalTweetId, cursor);
+      const params = buildGraphqlParams(
+        variables,
+        Features.TWEET_DETAIL,
+        Features.FIELD_TOGGLES_WITH_ARTICLE
+      );
+      const endpoint = getTweetDetailEndpoint(env);
+      const data = await http.get(endpoint, params);
+      return parseTweetDetail(data, focalTweetId, { continuation: Boolean(cursor) });
     },
 
     async getUserTweets(userId, { count = 20, cursor = '' }) {
