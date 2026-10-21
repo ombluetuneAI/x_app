@@ -1,9 +1,28 @@
+function normalizeProfileImageUrl(raw) {
+  if (!raw) return '';
+  return raw.replace('_normal', '_400x400');
+}
+
+/** Profile image from GraphQL User (legacy or avatar.image_url). */
+export function profileImageUrlFromUserResult(userResult) {
+  if (!userResult || userResult.__typename === 'UserUnavailable') return '';
+  const userLegacy = userResult.legacy || {};
+  const userCore = userResult.core || {};
+  const raw =
+    userLegacy.profile_image_url_https ||
+    userCore.profile_image_url_https ||
+    userResult.avatar?.image_url ||
+    '';
+  return normalizeProfileImageUrl(raw);
+}
+
 export function userFromDict(data) {
   const result = data?.result ?? data;
   if (!result || result.__typename === 'UserUnavailable') {
     return null;
   }
   const legacy = result.legacy || {};
+  const profileImageRaw = legacy.profile_image_url_https || result.avatar?.image_url || '';
   return {
     id: String(result.rest_id || ''),
     name: legacy.name || '',
@@ -11,7 +30,7 @@ export function userFromDict(data) {
     description: legacy.description || '',
     location: legacy.location || '',
     url: legacy.url || '',
-    profile_image_url: legacy.profile_image_url_https || '',
+    profile_image_url: profileImageRaw,
     profile_banner_url: legacy.profile_banner_url || '',
     protected: legacy.protected || false,
     verified: legacy.verified || false,
@@ -149,13 +168,7 @@ export function tweetFromDict(data) {
     screenName = userLegacy.screen_name || '';
   }
 
-  let profileImageUrl = '';
-  const userLegacy = userResult.legacy || {};
-  if (userLegacy.profile_image_url_https) {
-    profileImageUrl = userLegacy.profile_image_url_https.replace('_normal', '_400x400');
-  } else if (userCore.profile_image_url_https) {
-    profileImageUrl = userCore.profile_image_url_https.replace('_normal', '_400x400');
-  }
+  const profileImageUrl = profileImageUrlFromUserResult(userResult);
 
   let mediaList = legacy.extended_entities?.media || [];
   if (!mediaList.length) {

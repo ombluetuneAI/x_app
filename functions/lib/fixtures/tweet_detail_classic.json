@@ -98,8 +98,9 @@
                           "result": {
                             "rest_id": "3",
                             "core": { "name": "Replier", "screen_name": "replier" },
-                            "legacy": {
-                              "profile_image_url_https": "https://pbs.twimg.com/profile_normal/c.jpg"
+                            "legacy": {},
+                            "avatar": {
+                              "image_url": "https://pbs.twimg.com/profile_normal/c.jpg"
                             }
                           }
                         }

@@ -38,6 +38,10 @@ test('parseTweetDetail splits classic TimelineTimelineItem replies', () => {
   assert.equal(ancestors[0].id, '100');
   assert.equal(replies.length, 1);
   assert.equal(replies[0].text, 'Classic reply item');
+  assert.equal(
+    replies[0].profile_image_url,
+    'https://pbs.twimg.com/profile_400x400/c.jpg'
+  );
   assert.equal(nextCursor, 'reply-cursor-2');
 });
 
