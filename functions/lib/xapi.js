@@ -1,10 +1,11 @@
-import { APIEndpoints, Features, buildGraphqlParams } from './constants.js';
+import { APIEndpoints, Features, buildGraphqlParams, getTweetDetailEndpoint } from './constants.js';
 import { createHttpClient } from './http.js';
 import {
   parseUserByScreenName,
   parseUsersFromTimeline,
   parseTweets,
   parseMediaList,
+  parseTweetDetail,
 } from './parsers.js';
 import { userFromV1Dict } from './models.js';
 
@@ -60,6 +61,26 @@ export function createXApi(env) {
       );
       const data = await http.get(endpoint, params);
       return parseTweets(data);
+    },
+
+    async getTweetDetail(tweetId, { cursor = '' } = {}) {
+      const variables = {
+        focalTweetId: String(tweetId),
+        referrer: 'profile',
+        with_rux_injections: false,
+        rankingMode: 'Relevance',
+        includePromotedContent: true,
+        withCommunity: true,
+      };
+      if (cursor) variables.cursor = cursor;
+
+      const params = buildGraphqlParams(
+        variables,
+        Features.TWEET_DETAIL,
+        Features.FIELD_TOGGLES_WITH_ARTICLE
+      );
+      const data = await http.get(getTweetDetailEndpoint(env), params);
+      return parseTweetDetail(data, tweetId);
     },
 
     async getUserTweets(userId, { count = 20, cursor = '' }) {

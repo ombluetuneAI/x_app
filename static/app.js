@@ -323,6 +323,15 @@ let tweetLightboxMedia = [];  // Media array for current tweet lightbox
 let isTweetLightbox = false;   // Whether lightbox is showing tweet media (vs profile media grid)
 let tweetMediaMap = {};        // Store media arrays keyed by tweet ID
 
+let currentTweetId = '';
+let tweetDetailAncestors = [];
+let tweetDetailTweet = null;
+let tweetDetailReplies = [];
+let tweetRepliesCursor = '';
+let isLoadingTweetDetail = false;
+let hasMoreTweetReplies = true;
+let tweetRepliesLoadedIds = new Set();
+
 const PAGINATION_FOOTERS = {
     home: {
         id: 'homePaginationFooter',
@@ -362,6 +371,14 @@ const PAGINATION_FOOTERS = {
             loading: isLoadingFollowers,
             hasMore: hasMoreFollowers,
             hasContent: allFollowersUsers.length > 0,
+        }),
+    },
+    tweetReplies: {
+        id: 'tweetRepliesPaginationFooter',
+        getState: () => ({
+            loading: isLoadingTweetDetail,
+            hasMore: hasMoreTweetReplies,
+            hasContent: tweetDetailReplies.length > 0,
         }),
     },
 };
@@ -411,6 +428,7 @@ function updatePaginationFooter(footerId, { loading, hasMore, hasContent }) {
 }
 
 function getCurrentPaginationKey() {
+    if (currentView === 'tweet') return 'tweetReplies';
     if (currentView === 'home') return 'home';
     if (currentView === 'following') return 'following';
     if (currentView === 'followers') return 'followers';
@@ -441,6 +459,7 @@ function refreshCurrentPaginationFooter() {
 
 // DOM Elements
 const homeView = document.getElementById('homeView');
+const tweetView = document.getElementById('tweetView');
 const profileView = document.getElementById('profileView');
 const followingView = document.getElementById('followingView');
 const followersView = document.getElementById('followersView');
@@ -453,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const screenName = params.get('user');
     const view = params.get('view') || 'home';
+    const tweetId = params.get('tweet');
     
     // Push an initial safe anchor state to prevent Android edge-swipe from
     // closing the page when the history stack is shallow (e.g., direct access).
@@ -462,7 +482,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Load appropriate view based on URL
-    if (view === 'following' && screenName) {
+    if (view === 'tweet' && tweetId) {
+        showTweetDetail(tweetId, false);
+    } else if (view === 'following' && screenName) {
         showFollowing(screenName);
     } else if (view === 'followers' && screenName) {
         showFollowers(screenName);
@@ -503,16 +525,167 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Infinite scroll with Intersection Observer
     setupInfiniteScroll();
+
+    document.addEventListener('click', onGlobalTweetItemClick);
 });
+
+function hideAllMainViews() {
+    homeView.classList.add('hidden');
+    tweetView.classList.add('hidden');
+    profileView.classList.add('hidden');
+    followingView.classList.add('hidden');
+    followersView.classList.add('hidden');
+}
+
+/**
+ * Open tweet thread (detail + replies). Updates URL when pushHistory is true.
+ */
+function navigateToTweet(tweetId) {
+    if (!tweetId) return;
+    const url = new URL(window.location);
+    url.searchParams.delete('user');
+    url.searchParams.set('view', 'tweet');
+    url.searchParams.set('tweet', tweetId);
+    window.history.pushState({ view: 'tweet', tweet: tweetId }, '', url);
+    showTweetDetail(tweetId);
+}
+
+function showTweetDetail(tweetId, pushHistory = true) {
+    if (!tweetId) return;
+    hideAllMainViews();
+    tweetView.classList.remove('hidden');
+    backBtn.classList.remove('hidden');
+    headerTitle.textContent = 'Post';
+    document.getElementById('headerSubtitle').textContent = '';
+    currentView = 'tweet';
+    hideAllPaginationFooters();
+
+    if (pushHistory && currentTweetId !== tweetId) {
+        const url = new URL(window.location);
+        url.searchParams.delete('user');
+        url.searchParams.set('view', 'tweet');
+        url.searchParams.set('tweet', tweetId);
+        window.history.replaceState({ view: 'tweet', tweet: tweetId }, '', url);
+    }
+
+    if (currentTweetId !== tweetId) {
+        currentTweetId = tweetId;
+        tweetDetailAncestors = [];
+        tweetDetailTweet = null;
+        tweetDetailReplies = [];
+        tweetRepliesCursor = '';
+        tweetRepliesLoadedIds = new Set();
+        hasMoreTweetReplies = true;
+        document.getElementById('tweetThread').innerHTML = '<div class="loading">Loading...</div>';
+        document.getElementById('tweetRepliesList').innerHTML = '';
+        loadTweetDetail(tweetId);
+    }
+}
+
+async function loadTweetDetail(tweetId, cursor = '') {
+    if (isLoadingTweetDetail) return;
+    isLoadingTweetDetail = true;
+    if (cursor) refreshCurrentPaginationFooter();
+
+    try {
+        let url = `${API_BASE}/api/tweet/${encodeURIComponent(tweetId)}`;
+        if (cursor) {
+            url += `?cursor=${encodeURIComponent(cursor)}`;
+        }
+
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.success) {
+            const { tweet, ancestors, replies, cursor: nextCursor } = result.data;
+
+            if (!cursor) {
+                tweetDetailAncestors = ancestors || [];
+                tweetDetailTweet = tweet;
+                tweetDetailReplies = [];
+                tweetRepliesLoadedIds = new Set();
+                renderTweetDetailThread();
+            }
+
+            const newReplies = (replies || []).filter((r) => !tweetRepliesLoadedIds.has(r.id));
+            newReplies.forEach((r) => tweetRepliesLoadedIds.add(r.id));
+
+            if (!cursor) {
+                tweetDetailReplies = newReplies;
+                renderTweetsList(newReplies, true, 'tweetRepliesList', {
+                    navigable: true,
+                    variant: 'reply',
+                });
+            } else if (newReplies.length > 0) {
+                tweetDetailReplies = tweetDetailReplies.concat(newReplies);
+                renderTweetsList(newReplies, false, 'tweetRepliesList', {
+                    navigable: true,
+                    variant: 'reply',
+                });
+            }
+
+            tweetRepliesCursor = nextCursor || '';
+            hasMoreTweetReplies = !!(
+                tweetRepliesCursor &&
+                !tweetRepliesCursor.startsWith('0|')
+            );
+        } else if (!cursor) {
+            document.getElementById('tweetThread').innerHTML =
+                `<div class="error">${escapeHtml(result.error || 'Failed to load post')}</div>`;
+            document.getElementById('tweetRepliesList').innerHTML = '';
+            hasMoreTweetReplies = false;
+        }
+    } catch (error) {
+        console.error('Error loading tweet detail:', error);
+        if (!cursor) {
+            document.getElementById('tweetThread').innerHTML =
+                '<div class="error">Failed to load post</div>';
+        }
+        hasMoreTweetReplies = false;
+    } finally {
+        isLoadingTweetDetail = false;
+        refreshCurrentPaginationFooter();
+    }
+}
+
+function renderTweetDetailThread() {
+    const thread = document.getElementById('tweetThread');
+    const chain = [...(tweetDetailAncestors || [])];
+    if (tweetDetailTweet) {
+        chain.push(tweetDetailTweet);
+    }
+    if (!chain.length) {
+        thread.innerHTML = '<div class="loading">No post found</div>';
+        return;
+    }
+    const ancestorsOnly = chain.slice(0, -1);
+    const focal = chain[chain.length - 1];
+    let html = '';
+    if (ancestorsOnly.length) {
+        html += renderTweetsListHtml(ancestorsOnly, { navigable: true, variant: 'default' });
+    }
+    html += renderTweetsListHtml([focal], { navigable: false, variant: 'focal' });
+    thread.innerHTML = html;
+}
+
+function onGlobalTweetItemClick(e) {
+    const item = e.target.closest('.tweet-item--navigable');
+    if (!item) return;
+    if (e.target.closest('.tweet-avatar, .tweet-author, a, button, .tweet-media-item, .translate-btn')) {
+        return;
+    }
+    const tweetId = item.dataset.tweetId;
+    if (tweetId) {
+        navigateToTweet(tweetId);
+    }
+}
 
 /**
  * Show home timeline view
  */
 function showHome() {
+    hideAllMainViews();
     homeView.classList.remove('hidden');
-    profileView.classList.add('hidden');
-    followingView.classList.add('hidden');
-    followersView.classList.add('hidden');
     backBtn.classList.add('hidden');
     headerTitle.textContent = 'Home';
     currentView = 'home';
@@ -521,6 +694,7 @@ function showHome() {
     const url = new URL(window.location);
     url.searchParams.delete('user');
     url.searchParams.delete('view');
+    url.searchParams.delete('tweet');
     window.history.replaceState({ view: 'home' }, '', url);
     
     // Load home feed if not already loaded
@@ -909,6 +1083,16 @@ function setupInfiniteScroll() {
             }
             return;
         }
+
+        // Tweet thread replies
+        if (currentView === 'tweet') {
+            if (!hasMoreTweetReplies || isLoadingTweetDetail) return;
+            if (distanceToBottom < threshold && distanceToBottom > -100 && tweetRepliesCursor) {
+                lastTriggerTime = now;
+                loadTweetDetail(currentTweetId, tweetRepliesCursor);
+            }
+            return;
+        }
         
         const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
         const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
@@ -1031,6 +1215,7 @@ function renderProfile(data) {
     
     // Switch views
     homeView.classList.add('hidden');
+    tweetView.classList.add('hidden');
     profileView.classList.remove('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
@@ -1114,14 +1299,41 @@ function renderTweetMedia(media, tweetId) {
     }
 }
 
+function buildTweetItemClass(navigable, variant) {
+    const cls = ['tweet-item'];
+    if (navigable) cls.push('tweet-item--navigable');
+    if (variant === 'reply') cls.push('tweet-reply');
+    if (variant === 'focal') cls.push('tweet-focal');
+    return cls.join(' ');
+}
+
+function renderTweetsListHtml(tweets, options = {}) {
+    const el = document.createElement('div');
+    renderTweetsList(tweets, true, null, options, el);
+    return el.innerHTML;
+}
+
 /**
  * Render tweets list
  */
-function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
-    const list = document.getElementById(containerId);
-    
+function renderTweetsList(tweets, replace = true, containerId = 'tweetsList', options = {}, targetEl = null) {
+    const list = targetEl || (containerId ? document.getElementById(containerId) : null);
+    const defaultNavigable = containerId === 'homeFeed' || containerId === 'tweetsList';
+    const navigable = options.navigable !== undefined ? options.navigable : defaultNavigable;
+    const variant = options.variant || 'default';
+    const itemOpen = (id) =>
+        `<div class="${buildTweetItemClass(navigable, variant)}" data-tweet-id="${escapeHtml(String(id))}">`;
+
+    if (!list) return;
+
     if (!tweets || tweets.length === 0) {
-        if (replace) list.innerHTML = '<div class="loading">No posts found</div>';
+        if (replace) {
+            if (containerId === 'tweetRepliesList') {
+                list.innerHTML = '<div class="loading">No replies yet</div>';
+            } else {
+                list.innerHTML = '<div class="loading">No posts found</div>';
+            }
+        }
         return;
     }
     
@@ -1170,9 +1382,9 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
     `;
     
     const renderNestedCard = (nestedTweet) => {
-        const qName = nestedTweet.user_name || currentUser.name;
-        const qHandle = nestedTweet.screen_name || currentUser.screen_name;
-        const qAvatar = nestedTweet.profile_image_url || currentUser.profile_image_url;
+        const qName = nestedTweet.user_name || currentUser?.name || 'User';
+        const qHandle = nestedTweet.screen_name || currentUser?.screen_name || '';
+        const qAvatar = nestedTweet.profile_image_url || currentUser?.profile_image_url || '';
         return `
             <div class="tweet-nested-card">
                 ${renderTweetHeader(qName, qHandle, qAvatar, nestedTweet.created_at)}
@@ -1188,9 +1400,9 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
         const isQuote = !!tweet.quoted_tweet;
         
         // Use tweet's own author info or currentUser as fallback
-        const authorName = tweet.user_name || currentUser.name;
-        const authorHandle = tweet.screen_name || currentUser.screen_name;
-        const authorAvatar = tweet.profile_image_url || currentUser.profile_image_url;
+        const authorName = tweet.user_name || currentUser?.name || 'User';
+        const authorHandle = tweet.screen_name || currentUser?.screen_name || '';
+        const authorAvatar = tweet.profile_image_url || currentUser?.profile_image_url || '';
         
         // === Retweet ===
         if (isRetweet) {
@@ -1203,7 +1415,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
             }
             
             return `
-                <div class="tweet-item">
+                ${itemOpen(displayTweet.id)}
                     <div class="tweet-retweet-label">
                         ${retweetIcon}
                         ${escapeHtml(retweeterName)} 转发了
@@ -1226,7 +1438,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
             }
             
             return `
-                <div class="tweet-item">
+                ${itemOpen(tweet.id)}
                     ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
                     ${quoteText ? `<div class="tweet-text">${linkifyText(quoteText)}</div>` : ''}
                     ${translateBtnHtml(tweet.id)}
@@ -1239,7 +1451,7 @@ function renderTweetsList(tweets, replace = true, containerId = 'tweetsList') {
         
         // === Normal tweet ===
         return `
-            <div class="tweet-item">
+            ${itemOpen(tweet.id)}
                 ${renderTweetHeader(authorName, authorHandle, authorAvatar, tweet.created_at)}
                 <div class="tweet-text">${linkifyText(tweet.text)}</div>
                 ${translateBtnHtml(tweet.id)}
@@ -1552,6 +1764,7 @@ function navigateToFollowing(screenName) {
  */
 function navigateToProfile(screenName) {
     // Switch views
+    tweetView.classList.add('hidden');
     homeView.classList.add('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
@@ -1582,6 +1795,7 @@ function navigateToProfile(screenName) {
     const url = new URL(window.location);
     url.searchParams.set('user', screenName);
     url.searchParams.delete('view');
+    url.searchParams.delete('tweet');
     window.history.pushState({ view: 'profile', user: screenName }, '', url);
     
     loadUserProfile(screenName);
@@ -1595,6 +1809,7 @@ async function showFollowing(screenName) {
         followingView.classList.remove('hidden');
         followersView.classList.add('hidden');
         homeView.classList.add('hidden');
+        tweetView.classList.add('hidden');
         profileView.classList.add('hidden');
         
         document.getElementById('followingTitle').textContent = `People @${screenName} follows`;
@@ -1763,6 +1978,7 @@ async function showFollowers(screenName) {
         followersView.classList.remove('hidden');
         followingView.classList.add('hidden');
         homeView.classList.add('hidden');
+        tweetView.classList.add('hidden');
         profileView.classList.add('hidden');
         
         document.getElementById('followersTitle').textContent = `Followers of @${screenName}`;
@@ -2049,8 +2265,11 @@ window.addEventListener('popstate', (event) => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get('view');
     const user = params.get('user');
+    const tweetId = params.get('tweet');
     
-    if (view === 'following' && user) {
+    if (view === 'tweet' && tweetId) {
+        showTweetDetail(tweetId, false);
+    } else if (view === 'following' && user) {
         showFollowing(user);
     } else if (view === 'followers' && user) {
         showFollowers(user);
@@ -2058,6 +2277,7 @@ window.addEventListener('popstate', (event) => {
         // Go back to profile view
         followingView.classList.add('hidden');
         followersView.classList.add('hidden');
+        tweetView.classList.add('hidden');
         profileView.classList.remove('hidden');
         homeView.classList.add('hidden');
         

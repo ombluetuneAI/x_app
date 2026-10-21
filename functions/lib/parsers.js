@@ -11,6 +11,18 @@ export function safeGet(data, ...keys) {
   return current;
 }
 
+export function getTweetDetailInstructions(data) {
+  const paths = [
+    ['data', 'threaded_conversation_with_injections_v2', 'instructions'],
+    ['data', 'threaded_conversation_with_injections', 'instructions'],
+  ];
+  for (const path of paths) {
+    const instructions = safeGet(data, ...path);
+    if (instructions) return instructions;
+  }
+  return [];
+}
+
 export function getInstructions(data) {
   const paths = [
     ['data', 'user', 'result', 'timeline_v2', 'timeline', 'instructions'],
@@ -123,6 +135,51 @@ export function parseTweets(data) {
   }
   const nextCursor = getNextCursor(entries);
   return { tweets, nextCursor };
+}
+
+/**
+ * Parse TweetDetail (thread + replies) response.
+ * @param {object} data - Raw GraphQL JSON
+ * @param {string} focalTweetId - Tweet id requested by the client
+ */
+export function parseTweetDetail(data, focalTweetId) {
+  const instructions = getTweetDetailInstructions(data);
+  const entries = getEntries(instructions);
+  const orderedTweets = [];
+  const seen = new Set();
+
+  for (const entry of entries) {
+    if (entry.content?.entryType === 'TimelineTimelineCursor') continue;
+    for (const tweet of parseTweetsFromEntry(entry)) {
+      if (!tweet?.id || seen.has(tweet.id)) continue;
+      seen.add(tweet.id);
+      orderedTweets.push(tweet);
+    }
+  }
+
+  const focalId = String(focalTweetId || '');
+  let focalIndex = focalId ? orderedTweets.findIndex((t) => t.id === focalId) : -1;
+  if (focalIndex < 0 && orderedTweets.length === 1) {
+    focalIndex = 0;
+  }
+
+  let ancestors = [];
+  let tweet = null;
+  let replies = [];
+
+  if (focalIndex >= 0) {
+    ancestors = orderedTweets.slice(0, focalIndex);
+    tweet = orderedTweets[focalIndex];
+    replies = orderedTweets.slice(focalIndex + 1);
+  } else if (orderedTweets.length > 0) {
+    tweet = orderedTweets[0];
+    replies = orderedTweets.slice(1);
+  }
+
+  let nextCursor = getNextCursor(entries);
+  if (!nextCursor || nextCursor.startsWith('0|')) nextCursor = '';
+
+  return { tweet, ancestors, replies, nextCursor };
 }
 
 export function parseMediaList(data) {

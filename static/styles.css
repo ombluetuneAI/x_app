@@ -435,6 +435,68 @@ body {
     background-color: rgba(231, 233, 234, 0.03);
 }
 
+.tweet-item--navigable {
+    cursor: pointer;
+}
+
+.tweet-avatar,
+.tweet-author {
+    cursor: pointer;
+}
+
+.tweet-thread {
+    border-top: none;
+}
+
+.tweet-thread .tweet-item {
+    border-bottom: none;
+}
+
+.tweet-focal {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tweet-replies-section {
+    border-top: 1px solid var(--border-color);
+}
+
+.tweet-replies-heading {
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 16px 4px;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.tweet-replies .tweet-reply {
+    position: relative;
+    padding-left: 72px;
+}
+
+.tweet-replies .tweet-reply::before {
+    content: '';
+    position: absolute;
+    left: 36px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-color);
+    border-radius: 1px;
+}
+
+.tweet-replies .tweet-reply .tweet-avatar {
+    width: 32px;
+    height: 32px;
+    position: absolute;
+    left: 16px;
+    top: 12px;
+    margin-right: 0;
+}
+
+.tweet-replies .tweet-reply .tweet-header {
+    margin-left: 0;
+}
+
 .tweet-header {
     display: flex;
     align-items: center;

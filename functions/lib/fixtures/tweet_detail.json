@@ -1,0 +1,153 @@
+{
+  "data": {
+    "threaded_conversation_with_injections_v2": {
+      "instructions": [
+        {
+          "type": "TimelineAddEntries",
+          "entries": [
+            {
+              "entryId": "tweet-parent",
+              "content": {
+                "entryType": "TimelineTimelineItem",
+                "itemContent": {
+                  "tweet_results": {
+                    "result": {
+                      "rest_id": "100",
+                      "legacy": {
+                        "full_text": "Parent tweet",
+                        "created_at": "Mon Jan 01 00:00:00 +0000 2020",
+                        "favorite_count": 2,
+                        "retweet_count": 0,
+                        "reply_count": 1,
+                        "quote_count": 0
+                      },
+                      "core": {
+                        "user_results": {
+                          "result": {
+                            "rest_id": "10",
+                            "core": { "name": "Parent User", "screen_name": "parentuser" },
+                            "legacy": {
+                              "profile_image_url_https": "https://pbs.twimg.com/profile_normal/p.jpg"
+                            }
+                          }
+                        }
+                      },
+                      "views": { "count": "50" }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "entryId": "tweet-focal",
+              "content": {
+                "entryType": "TimelineTimelineItem",
+                "itemContent": {
+                  "tweet_results": {
+                    "result": {
+                      "rest_id": "200",
+                      "legacy": {
+                        "full_text": "Focal tweet",
+                        "created_at": "Mon Jan 02 00:00:00 +0000 2020",
+                        "favorite_count": 5,
+                        "retweet_count": 1,
+                        "reply_count": 2,
+                        "quote_count": 0,
+                        "in_reply_to_status_id_str": "100"
+                      },
+                      "core": {
+                        "user_results": {
+                          "result": {
+                            "rest_id": "20",
+                            "core": { "name": "Focal User", "screen_name": "focaluser" },
+                            "legacy": {
+                              "profile_image_url_https": "https://pbs.twimg.com/profile_normal/f.jpg"
+                            }
+                          }
+                        }
+                      },
+                      "views": { "count": "120" }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "entryId": "conversation-module",
+              "content": {
+                "entryType": "TimelineTimelineModule",
+                "displayType": "VerticalConversation",
+                "items": [
+                  {
+                    "item": {
+                      "itemContent": {
+                        "tweet_results": {
+                          "result": {
+                            "rest_id": "301",
+                            "legacy": {
+                              "full_text": "First reply",
+                              "created_at": "Mon Jan 03 00:00:00 +0000 2020",
+                              "favorite_count": 1,
+                              "retweet_count": 0,
+                              "reply_count": 0,
+                              "quote_count": 0,
+                              "in_reply_to_status_id_str": "200"
+                            },
+                            "core": {
+                              "user_results": {
+                                "result": {
+                                  "rest_id": "30",
+                                  "core": { "name": "Replier One", "screen_name": "replier1" },
+                                  "legacy": {
+                                    "profile_image_url_https": "https://pbs.twimg.com/profile_normal/r1.jpg"
+                                  }
+                                }
+                              }
+                            },
+                            "views": { "count": "8" }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "item": {
+                      "itemContent": {
+                        "tweet_results": {
+                          "result": {
+                            "rest_id": "302",
+                            "legacy": {
+                              "full_text": "Second reply",
+                              "created_at": "Mon Jan 04 00:00:00 +0000 2020",
+                              "favorite_count": 0,
+                              "retweet_count": 0,
+                              "reply_count": 0,
+                              "quote_count": 0,
+                              "in_reply_to_status_id_str": "200"
+                            },
+                            "core": {
+                              "user_results": {
+                                "result": {
+                                  "rest_id": "31",
+                                  "core": { "name": "Replier Two", "screen_name": "replier2" },
+                                  "legacy": {
+                                    "profile_image_url_https": "https://pbs.twimg.com/profile_normal/r2.jpg"
+                                  }
+                                }
+                              }
+                            },
+                            "views": { "count": "3" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

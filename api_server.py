@@ -195,6 +195,35 @@ def get_user_followers(screen_name):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/tweet/<tweet_id>')
+def get_tweet_detail(tweet_id):
+    """Get tweet thread with replies."""
+    try:
+        if not tweet_id.isdigit():
+            return jsonify({"success": False, "error": "Invalid tweet id"}), 400
+        client = get_client()
+        cursor = request.args.get('cursor', '')
+        tweet, ancestors, replies, next_cursor = client.tweet.get_tweet_detail(
+            tweet_id, cursor=cursor
+        )
+        if not tweet:
+            return jsonify({"success": False, "error": "Tweet not found"}), 404
+        return jsonify({
+            "success": True,
+            "data": {
+                "tweet": tweet.to_dict(),
+                "ancestors": [t.to_dict() for t in ancestors],
+                "replies": [r.to_dict() for r in replies],
+                "cursor": next_cursor,
+            },
+        })
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e), "traceback": tb}), 500
+
+
 @app.route('/api/user/<screen_name>/tweets')
 def get_user_tweets(screen_name):
     """Get user's tweets (posts)."""

@@ -154,3 +154,29 @@ class TweetAPI(BaseAPI):
             cursor = next_cursor
         
         return all_tweets, next_cursor
+
+    def get_tweet_detail(self, tweet_id: str, cursor: str = "") -> tuple:
+        """
+        Get a tweet thread (ancestors, focal tweet, replies).
+
+        Returns:
+            Tuple of (focal Tweet, ancestor list, reply list, next cursor)
+        """
+        variables = {
+            "focalTweetId": str(tweet_id),
+            "referrer": "profile",
+            "with_rux_injections": False,
+            "rankingMode": "Relevance",
+            "includePromotedContent": True,
+            "withCommunity": True,
+        }
+        if cursor:
+            variables["cursor"] = cursor
+
+        params = self._build_params(
+            variables=variables,
+            features=Features.TWEET_DETAIL,
+            field_toggles=Features.FIELD_TOGGLES_WITH_ARTICLE,
+        )
+        data = self._get(APIEndpoints.TWEET_DETAIL, params)
+        return self._parser.parse_tweet_detail(data, tweet_id)

@@ -41,6 +41,7 @@ class APIEndpoints:
     # Home timeline endpoints (GraphQL)
     HOME_TIMELINE = "/i/api/graphql/1u0Wlkw6Ru1NwBUD-pDiww/HomeTimeline"
     HOME_LATEST_TIMELINE = "/i/api/graphql/9EwYy8pLBOSFlEoSP2STiQ/HomeLatestTimeline"
+    TWEET_DETAIL = "/i/api/graphql/xOhkmRac04YFZmOzU9PJHg/TweetDetail"
     
     # User endpoints (REST API v1.1 - more stable)
     CREATE_FRIENDSHIP = "/i/api/1.1/friendships/create.json"
@@ -186,6 +187,8 @@ class Features:
     # Features for Following API (same as ListMembers)
     FOLLOWING = LIST_MEMBERS
     
+    TWEET_DETAIL = USER_TWEETS
+
     # Features for Home Timeline API (For You feed)
     HOME_TIMELINE = json_dumps({
         "rweb_tipjar_consumption_enabled": True,

@@ -3,7 +3,7 @@ Tweet parser module for X API responses.
 
 This module provides parsers for tweet-related API responses.
 """
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 
 from ..models import Tweet
 from .base import BaseParser, TimelineParser
@@ -116,3 +116,51 @@ class TweetTimelineParser(TimelineParser):
     def parse(self, data: Dict[str, Any]) -> tuple:
         """Override to return tweets instead of raw contents."""
         return self.parse_tweets(data)
+
+    @staticmethod
+    def get_tweet_detail_instructions(data: Dict[str, Any]) -> List[Dict]:
+        paths = [
+            ("data", "threaded_conversation_with_injections_v2", "instructions"),
+            ("data", "threaded_conversation_with_injections", "instructions"),
+        ]
+        for path in paths:
+            instructions = BaseParser.safe_get(data, *path, default=None)
+            if instructions:
+                return instructions
+        return []
+
+    def parse_tweet_detail(
+        self, data: Dict[str, Any], focal_tweet_id: str
+    ) -> Tuple[Optional[Tweet], List[Tweet], List[Tweet], str]:
+        instructions = self.get_tweet_detail_instructions(data)
+        entries = self.get_entries(instructions)
+        ordered: List[Tweet] = []
+        seen = set()
+        for entry in entries:
+            if entry.get("content", {}).get("entryType") == "TimelineTimelineCursor":
+                continue
+            for tweet in self.tweet_parser.parse_tweets_from_entry(entry):
+                if tweet and tweet.id not in seen:
+                    seen.add(tweet.id)
+                    ordered.append(tweet)
+
+        focal_id = str(focal_tweet_id or "")
+        focal_index = next((i for i, t in enumerate(ordered) if t.id == focal_id), -1)
+        if focal_index < 0 and len(ordered) == 1:
+            focal_index = 0
+
+        ancestors: List[Tweet] = []
+        tweet: Optional[Tweet] = None
+        replies: List[Tweet] = []
+        if focal_index >= 0:
+            ancestors = ordered[:focal_index]
+            tweet = ordered[focal_index]
+            replies = ordered[focal_index + 1 :]
+        elif ordered:
+            tweet = ordered[0]
+            replies = ordered[1:]
+
+        next_cursor = self.get_next_cursor(entries)
+        if not next_cursor or next_cursor.startswith("0|"):
+            next_cursor = ""
+        return tweet, ancestors, replies, next_cursor
