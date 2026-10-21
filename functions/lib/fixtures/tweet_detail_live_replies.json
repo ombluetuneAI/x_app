@@ -1,0 +1,179 @@
+{
+  "data": {
+    "threaded_conversation_with_injections_v2": {
+      "instructions": [
+        {
+          "type": "TimelineAddEntries",
+          "entries": [
+            {
+              "entryId": "conversationthread-100-root",
+              "content": {
+                "entryType": "TimelineTimelineModule",
+                "displayType": "VerticalConversation",
+                "items": [
+                  {
+                    "entryId": "conversationthread-100-tweet-100",
+                    "item": {
+                      "itemContent": {
+                        "tweet_results": {
+                          "result": {
+                            "rest_id": "100",
+                            "legacy": {
+                              "full_text": "Thread root",
+                              "created_at": "Mon Jan 01 10:00:00 +0000 2020",
+                              "favorite_count": 1,
+                              "retweet_count": 0,
+                              "reply_count": 1,
+                              "quote_count": 0
+                            },
+                            "core": {
+                              "user_results": {
+                                "result": {
+                                  "rest_id": "10",
+                                  "core": { "name": "Root", "screen_name": "root" },
+                                  "legacy": {
+                                    "profile_image_url_https": "https://pbs.twimg.com/profile_normal/r.jpg"
+                                  }
+                                }
+                              }
+                            },
+                            "views": { "count": "10" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "entryId": "tweet-200",
+              "content": {
+                "entryType": "TimelineTimelineItem",
+                "itemContent": {
+                  "tweet_results": {
+                    "result": {
+                      "rest_id": "200",
+                      "legacy": {
+                        "full_text": "Focal on live-shaped timeline",
+                        "created_at": "Mon Jan 01 12:00:00 +0000 2020",
+                        "favorite_count": 5,
+                        "retweet_count": 0,
+                        "reply_count": 41,
+                        "quote_count": 0
+                      },
+                      "core": {
+                        "user_results": {
+                          "result": {
+                            "rest_id": "12",
+                            "core": { "name": "Focal", "screen_name": "focal" },
+                            "legacy": {
+                              "profile_image_url_https": "https://pbs.twimg.com/profile_normal/f.jpg"
+                            }
+                          }
+                        }
+                      },
+                      "views": { "count": "500" }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "entryId": "conversationthread-200-tweet-301",
+              "content": {
+                "entryType": "TimelineTimelineModule",
+                "displayType": "VerticalConversation",
+                "items": [
+                  {
+                    "entryId": "conversationthread-200-tweet-301-inner",
+                    "item": {
+                      "itemContent": {
+                        "tweet_results": {
+                          "result": {
+                            "rest_id": "301",
+                            "legacy": {
+                              "full_text": "Live-style reply one in conversationthread module",
+                              "created_at": "Mon Jan 01 13:00:00 +0000 2020",
+                              "favorite_count": 0,
+                              "retweet_count": 0,
+                              "reply_count": 0,
+                              "quote_count": 0,
+                              "in_reply_to_status_id_str": "200"
+                            },
+                            "core": {
+                              "user_results": {
+                                "result": {
+                                  "rest_id": "21",
+                                  "core": { "name": "Replier A", "screen_name": "repa" },
+                                  "legacy": {
+                                    "profile_image_url_https": "https://pbs.twimg.com/profile_normal/a.jpg"
+                                  }
+                                }
+                              }
+                            },
+                            "views": { "count": "3" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "entryId": "conversationthread-200-tweet-302",
+              "content": {
+                "entryType": "TimelineTimelineModule",
+                "displayType": "VerticalConversation",
+                "items": [
+                  {
+                    "entryId": "conversationthread-200-tweet-302-inner",
+                    "item": {
+                      "itemContent": {
+                        "tweet_results": {
+                          "result": {
+                            "rest_id": "302",
+                            "legacy": {
+                              "full_text": "Live-style reply two in conversationthread module",
+                              "created_at": "Mon Jan 01 14:00:00 +0000 2020",
+                              "favorite_count": 2,
+                              "retweet_count": 0,
+                              "reply_count": 0,
+                              "quote_count": 0,
+                              "in_reply_to_status_id_str": "200"
+                            },
+                            "core": {
+                              "user_results": {
+                                "result": {
+                                  "rest_id": "22",
+                                  "core": { "name": "Replier B", "screen_name": "repb" },
+                                  "legacy": {
+                                    "profile_image_url_https": "https://pbs.twimg.com/profile_normal/b.jpg"
+                                  }
+                                }
+                              }
+                            },
+                            "views": { "count": "7" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "entryId": "cursor-bottom-live",
+              "content": {
+                "entryType": "TimelineTimelineCursor",
+                "cursorType": "Bottom",
+                "value": "live-reply-cursor"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

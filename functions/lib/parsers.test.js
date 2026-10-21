@@ -43,6 +43,20 @@ test('buildTweetDetailVariables includes required withBirdwatchNotes', () => {
   assert.equal(withCursor.cursor, 'abc');
 });
 
+test('parseTweetDetail classifies post-focal conversationthread modules as replies', () => {
+  const data = loadFixture('tweet_detail_live_replies.json');
+  const { tweet, ancestors, replies, nextCursor } = parseTweetDetail(data, '200');
+  assert.ok(tweet);
+  assert.equal(tweet.id, '200');
+  assert.equal(ancestors.length, 1);
+  assert.equal(ancestors[0].id, '100');
+  assert.equal(replies.length, 2);
+  assert.equal(replies[0].id, '301');
+  assert.equal(replies[1].id, '302');
+  assert.equal(nextCursor, 'live-reply-cursor');
+  assert.ok(!ancestors.some((t) => t.id === '301' || t.id === '302'));
+});
+
 test('parseTweetDetail extracts ancestors, focal tweet, replies, and cursor', () => {
   const data = loadFixture('tweet_detail.json');
   const { tweet, ancestors, replies, nextCursor } = parseTweetDetail(data, '200');
