@@ -1412,13 +1412,47 @@ async function copyToClipboard(text) {
 }
 
 /**
+ * Keep in sync with functions/lib/videoCopyUrl.js (covered by unit tests).
+ */
+function resolveAbsolutePlaybackUrl(playbackUrl, origin = '') {
+    if (!playbackUrl || typeof playbackUrl !== 'string') return '';
+    const trimmed = playbackUrl.trim();
+    if (!trimmed) return '';
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (trimmed.startsWith('//')) return `https:${trimmed}`;
+    if (trimmed.startsWith('/') && origin) {
+        try {
+            const base = origin.endsWith('/') ? origin : `${origin}/`;
+            return new URL(trimmed, base).href;
+        } catch (e) {
+            return '';
+        }
+    }
+    return '';
+}
+
+function getVideoClipboardUrl({ playbackUrl = '', rawVideoUrl = '', origin = '' } = {}) {
+    const primary = playbackUrl || rawVideoUrl;
+    const absolute = resolveAbsolutePlaybackUrl(primary, origin);
+    if (absolute && /^https:\/\//i.test(absolute)) return absolute;
+    if (rawVideoUrl && /^https:\/\//i.test(rawVideoUrl.trim())) {
+        return rawVideoUrl.trim();
+    }
+    return '';
+}
+
+/**
  * Copy current lightbox video playback URL
  */
 async function copyCurrentVideoLink() {
     if (!pswp) return;
     const item = pswpItems[pswp.currIndex];
     if (!item?.isVideo) return;
-    const url = item.videoUrl || item.rawVideoUrl;
+    const url = getVideoClipboardUrl({
+        playbackUrl: item.videoUrl,
+        rawVideoUrl: item.rawVideoUrl,
+        origin: window.location.origin,
+    });
     if (!url) {
         showToast('无法获取视频链接', 'error', 2000);
         return;
@@ -1510,6 +1544,8 @@ function initPhotoSwipe(startIndex) {
             name: 'copy-link-button',
             order: 8,
             isButton: true,
+            title: '复制视频',
+            ariaLabel: '复制视频',
             html: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
             onInit: (el, pswpInstance) => {
                 const updateVisibility = () => {
