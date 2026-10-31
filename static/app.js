@@ -1434,7 +1434,7 @@ function resolveAbsolutePlaybackUrl(playbackUrl, origin = '') {
 function getVideoClipboardUrl({ playbackUrl = '', rawVideoUrl = '', origin = '' } = {}) {
     const primary = playbackUrl || rawVideoUrl;
     const absolute = resolveAbsolutePlaybackUrl(primary, origin);
-    if (absolute && /^https:\/\//i.test(absolute)) return absolute;
+    if (absolute && /^https?:\/\//i.test(absolute)) return absolute;
     if (rawVideoUrl && /^https:\/\//i.test(rawVideoUrl.trim())) {
         return rawVideoUrl.trim();
     }

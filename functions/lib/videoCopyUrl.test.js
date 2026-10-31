@@ -68,3 +68,14 @@ test('getVideoClipboardUrl returns empty when no usable URL', () => {
   assert.equal(getVideoClipboardUrl({ playbackUrl: '/only-relative', origin: '' }), '');
   assert.equal(getVideoClipboardUrl({}), '');
 });
+
+test('getVideoClipboardUrl expands relative proxy with http local origin (does not fall back to raw twimg)', () => {
+  const relative = `/api/media?url=${ENCODED}`;
+  const copied = getVideoClipboardUrl({
+    playbackUrl: relative,
+    rawVideoUrl: RAW,
+    origin: 'http://127.0.0.1:8788',
+  });
+  assert.equal(copied, `http://127.0.0.1:8788/api/media?url=${ENCODED}`);
+  assert.equal(isAbsoluteHttpsMediaUrl(copied), false);
+});

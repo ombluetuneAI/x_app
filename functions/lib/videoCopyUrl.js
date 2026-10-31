@@ -40,7 +40,8 @@ export function resolveAbsolutePlaybackUrl(playbackUrl, origin = '') {
 export function getVideoClipboardUrl({ playbackUrl = '', rawVideoUrl = '', origin = '' } = {}) {
   const primary = playbackUrl || rawVideoUrl;
   const absolute = resolveAbsolutePlaybackUrl(primary, origin);
-  if (absolute && /^https:\/\//i.test(absolute)) return absolute;
+  // Prefer absolute playback URL (https on Pages; http allowed for local wrangler).
+  if (absolute && /^https?:\/\//i.test(absolute)) return absolute;
 
   if (rawVideoUrl && /^https:\/\//i.test(rawVideoUrl.trim())) {
     return rawVideoUrl.trim();
