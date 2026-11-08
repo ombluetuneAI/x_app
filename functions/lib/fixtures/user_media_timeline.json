@@ -1,0 +1,230 @@
+{
+  "data": {
+    "user": {
+      "result": {
+        "timeline_v2": {
+          "timeline": {
+            "instructions": [
+              {
+                "type": "TimelineAddEntries",
+                "entries": [
+                  {
+                    "entryId": "tweet-original-photo",
+                    "content": {
+                      "entryType": "TimelineTimelineModule",
+                      "items": [
+                        {
+                          "item": {
+                            "itemContent": {
+                              "tweet_results": {
+                                "result": {
+                                  "rest_id": "1001",
+                                  "legacy": {
+                                    "id_str": "1001",
+                                    "full_text": "Original photo post",
+                                    "created_at": "Mon Jan 01 00:00:00 +0000 2020",
+                                    "favorite_count": 1,
+                                    "retweet_count": 0,
+                                    "reply_count": 0,
+                                    "quote_count": 0,
+                                    "extended_entities": {
+                                      "media": [
+                                        {
+                                          "type": "photo",
+                                          "media_url_https": "https://pbs.twimg.com/media/original_photo.jpg",
+                                          "sizes": { "large": { "w": 1200, "h": 800 } }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "core": {
+                                    "user_results": {
+                                      "result": {
+                                        "rest_id": "42",
+                                        "core": { "name": "User", "screen_name": "exampleuser" },
+                                        "legacy": {
+                                          "profile_image_url_https": "https://pbs.twimg.com/profile_normal/u.jpg"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "views": { "count": "5" }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "entryId": "tweet-retweet-photo",
+                    "content": {
+                      "entryType": "TimelineTimelineItem",
+                      "itemContent": {
+                        "tweet_results": {
+                          "result": {
+                            "rest_id": "2001",
+                            "legacy": {
+                              "id_str": "2001",
+                              "full_text": "RT @other: Nice shot",
+                              "created_at": "Tue Jan 02 00:00:00 +0000 2020",
+                              "favorite_count": 0,
+                              "retweet_count": 0,
+                              "reply_count": 0,
+                              "quote_count": 0,
+                              "retweeted_status_result": {
+                                "result": {
+                                  "rest_id": "1500",
+                                  "legacy": {
+                                    "id_str": "1500",
+                                    "full_text": "Nice shot",
+                                    "created_at": "Mon Jan 01 12:00:00 +0000 2020",
+                                    "favorite_count": 10,
+                                    "retweet_count": 2,
+                                    "reply_count": 0,
+                                    "quote_count": 0,
+                                    "extended_entities": {
+                                      "media": [
+                                        {
+                                          "type": "photo",
+                                          "media_url_https": "https://pbs.twimg.com/media/retweeted_photo.jpg",
+                                          "sizes": { "large": { "w": 800, "h": 600 } }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "core": {
+                                    "user_results": {
+                                      "result": {
+                                        "rest_id": "99",
+                                        "core": { "name": "Other", "screen_name": "other" },
+                                        "legacy": {
+                                          "profile_image_url_https": "https://pbs.twimg.com/profile_normal/o.jpg"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "views": { "count": "100" }
+                                }
+                              }
+                            },
+                            "core": {
+                              "user_results": {
+                                "result": {
+                                  "rest_id": "42",
+                                  "core": { "name": "User", "screen_name": "exampleuser" },
+                                  "legacy": {
+                                    "profile_image_url_https": "https://pbs.twimg.com/profile_normal/u.jpg"
+                                  }
+                                }
+                              }
+                            },
+                            "views": { "count": "1" }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "entryId": "tweet-retweet-video",
+                    "content": {
+                      "entryType": "TimelineTimelineModule",
+                      "items": [
+                        {
+                          "item": {
+                            "itemContent": {
+                              "tweet_results": {
+                                "result": {
+                                  "rest_id": "3001",
+                                  "legacy": {
+                                    "id_str": "3001",
+                                    "full_text": "RT @creator: Clip",
+                                    "created_at": "Wed Jan 03 00:00:00 +0000 2020",
+                                    "favorite_count": 0,
+                                    "retweet_count": 0,
+                                    "reply_count": 0,
+                                    "quote_count": 0,
+                                    "retweeted_status_result": {
+                                      "result": {
+                                        "rest_id": "2500",
+                                        "legacy": {
+                                          "id_str": "2500",
+                                          "full_text": "Clip",
+                                          "created_at": "Wed Jan 02 12:00:00 +0000 2020",
+                                          "favorite_count": 5,
+                                          "retweet_count": 1,
+                                          "reply_count": 0,
+                                          "quote_count": 0,
+                                          "extended_entities": {
+                                            "media": [
+                                              {
+                                                "type": "video",
+                                                "media_url_https": "https://pbs.twimg.com/media/video_thumb.jpg",
+                                                "video_info": {
+                                                  "duration_millis": 5000,
+                                                  "variants": [
+                                                    {
+                                                      "content_type": "video/mp4",
+                                                      "bitrate": 1280000,
+                                                      "url": "https://video.twimg.com/clip.mp4?tag=21"
+                                                    }
+                                                  ]
+                                                },
+                                                "sizes": { "large": { "w": 1280, "h": 720 } }
+                                              }
+                                            ]
+                                          }
+                                        },
+                                        "core": {
+                                          "user_results": {
+                                            "result": {
+                                              "rest_id": "77",
+                                              "core": { "name": "Creator", "screen_name": "creator" },
+                                              "legacy": {
+                                                "profile_image_url_https": "https://pbs.twimg.com/profile_normal/c.jpg"
+                                              }
+                                            }
+                                          }
+                                        },
+                                        "views": { "count": "50" }
+                                      }
+                                    }
+                                  },
+                                  "core": {
+                                    "user_results": {
+                                      "result": {
+                                        "rest_id": "42",
+                                        "core": { "name": "User", "screen_name": "exampleuser" },
+                                        "legacy": {
+                                          "profile_image_url_https": "https://pbs.twimg.com/profile_normal/u.jpg"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "views": { "count": "2" }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "entryId": "cursor-bottom",
+                    "content": {
+                      "entryType": "TimelineTimelineCursor",
+                      "cursorType": "Bottom",
+                      "value": "media-cursor-2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
