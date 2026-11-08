@@ -342,6 +342,14 @@ let isLoadingMedia = false;
 let hasMoreMedia = true;
 let hasMorePosts = true;
 let loadedMediaIds = new Set();
+
+/** Stable key per grid cell (multiple assets can share one tweet_id). */
+function mediaDedupeKey(m) {
+    if (m.media_id) return String(m.media_id);
+    const url = m.url || '';
+    const tweetId = m.tweet_id || '';
+    return url ? `${tweetId}:${url}` : tweetId;
+}
 let loadedTweetIds = new Set();
 
 // Tweet detail (in-app Post) state
@@ -860,8 +868,11 @@ async function loadUserMedia(screenName, cursor = '') {
             const nextCursor = result.data.cursor || '';
             
             // Filter out already loaded media
-            const newMedia = media.filter(m => !loadedMediaIds.has(m.tweet_id));
-            newMedia.forEach(m => loadedMediaIds.add(m.tweet_id));
+            const newMedia = media.filter(m => {
+                const key = mediaDedupeKey(m);
+                return key && !loadedMediaIds.has(key);
+            });
+            newMedia.forEach(m => loadedMediaIds.add(mediaDedupeKey(m)));
             
             if (!cursor) {
                 // First load - render all
@@ -1009,7 +1020,10 @@ function renderProfile(data) {
     mediaCursor = data.cursor || '';
     allMedia = data.media || [];
     loadedMediaIds = new Set();
-    (allMedia || []).forEach(m => { if (m.tweet_id) loadedMediaIds.add(m.tweet_id); });
+    (allMedia || []).forEach(m => {
+        const key = mediaDedupeKey(m);
+        if (key) loadedMediaIds.add(key);
+    });
     
     // Sync URL/state without adding a history entry. Callers that need a new
     // stack entry (e.g. navigateToProfile) already pushState before load.

@@ -1,6 +1,6 @@
 import { filterTimelineEntries } from './adFilter.js';
 import { isPromotedTimelineEntry, isPromotedItemContent } from './adFilter.js';
-import { userFromDict } from './models.js';
+import { userFromDict, mediaFromDict } from './models.js';
 import { tweetFromDict } from './models.js';
 
 export function safeGet(data, ...keys) {
@@ -209,12 +209,49 @@ export function parseTweets(data) {
   return { tweets, nextCursor };
 }
 
+function mediaEntitiesFromLegacy(legacy) {
+  if (!legacy) return [];
+  const extended = legacy.extended_entities?.media;
+  if (extended?.length) return extended;
+  return legacy.entities?.media || [];
+}
+
+function mediaItemsFromRawEntities(mediaList, result, legacy) {
+  const tweetId = String(result?.rest_id || legacy?.id_str || '');
+  const tweetText = legacy?.full_text || legacy?.text || '';
+  return mediaList.map((mediaData) =>
+    mediaFromDict({
+      ...mediaData,
+      tweet_id: tweetId,
+      tweet_text: tweetText,
+    })
+  );
+}
+
 /**
  * Extract display media from a UserMedia tweet_results payload (including retweets).
+ * UserMedia often uses TweetWithVisibilityResults where media can sit on the outer
+ * legacy or on result.tweet.legacy (see eh-view-enhance twitter UserMedia parser).
  * @param {object} tweetResults
  * @returns {import('./models.js').ReturnType<typeof mediaFromDict>[]}
  */
 export function mediaFromTweetResults(tweetResults) {
+  const root = tweetResults?.result ?? tweetResults;
+  if (!root || root.__typename === 'TweetTombstone') return [];
+
+  const legacyCandidates = [];
+  if (root.legacy) legacyCandidates.push({ result: root, legacy: root.legacy });
+  if (root.tweet?.legacy) {
+    legacyCandidates.push({ result: root.tweet, legacy: root.tweet.legacy });
+  }
+
+  for (const { result, legacy } of legacyCandidates) {
+    const mediaList = mediaEntitiesFromLegacy(legacy);
+    if (mediaList.length) {
+      return mediaItemsFromRawEntities(mediaList, result, legacy);
+    }
+  }
+
   const tweet = tweetFromDict(tweetResults);
   if (!tweet) return [];
   const source =
@@ -229,6 +266,77 @@ export function mediaFromTweetResults(tweetResults) {
     tweet_id: source.id,
     tweet_text: source.text,
   }));
+}
+
+/** Summarize a raw UserMedia response for CLI/debug (no secrets). */
+export function summarizeUserMediaResponse(data) {
+  let itemCount = 0;
+  let mediaCount = 0;
+  let outerLegacyHits = 0;
+  let innerLegacyHits = 0;
+  let retweetFallbackHits = 0;
+  const typenameCounts = {};
+
+  try {
+    const instructions =
+      data?.data?.user?.result?.timeline_v2?.timeline?.instructions ||
+      data?.data?.user?.result?.timeline?.timeline?.instructions ||
+      [];
+    const itemContents = [];
+    for (const inst of instructions) {
+      if (inst.type === 'TimelineAddToModule') {
+        for (const item of inst.moduleItems || []) {
+          const ic = item.item?.itemContent;
+          if (ic?.tweet_results) itemContents.push(ic);
+        }
+      }
+      if (inst.type === 'TimelineAddEntries') {
+        for (const entry of inst.entries || []) {
+          const content = entry.content || {};
+          if (content.entryType === 'TimelineTimelineModule') {
+            for (const item of content.items || []) {
+              const ic = item.item?.itemContent;
+              if (ic?.tweet_results) itemContents.push(ic);
+            }
+          }
+          if (content.entryType === 'TimelineTimelineItem') {
+            const ic = content.itemContent;
+            if (ic?.tweet_results) itemContents.push(ic);
+          }
+        }
+      }
+    }
+
+    for (const itemContent of itemContents) {
+      itemCount += 1;
+      const root = itemContent.tweet_results?.result;
+      const tn = root?.__typename || 'unknown';
+      typenameCounts[tn] = (typenameCounts[tn] || 0) + 1;
+      if (mediaEntitiesFromLegacy(root?.legacy).length) outerLegacyHits += 1;
+      else if (mediaEntitiesFromLegacy(root?.tweet?.legacy).length) innerLegacyHits += 1;
+      const extracted = mediaFromTweetResults(itemContent.tweet_results);
+      if (extracted.length) {
+        mediaCount += extracted.length;
+        if (
+          !mediaEntitiesFromLegacy(root?.legacy).length &&
+          !mediaEntitiesFromLegacy(root?.tweet?.legacy).length
+        ) {
+          retweetFallbackHits += 1;
+        }
+      }
+    }
+  } catch {
+    /* keep partial stats */
+  }
+
+  return {
+    itemCount,
+    mediaCount,
+    outerLegacyHits,
+    innerLegacyHits,
+    retweetFallbackHits,
+    typenameCounts,
+  };
 }
 
 export function parseMediaList(data) {

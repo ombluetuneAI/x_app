@@ -100,6 +100,7 @@ class Features:
         "freedom_of_speech_not_reach_fetch_enabled": True,
         "standardized_nudges_misinfo": True,
         "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": True,
+        "tweet_with_visibility_results_prefer_gql_media_interstitial_enabled": True,
         "rweb_video_timestamps_enabled": True,
         "longform_notetweets_rich_text_read_enabled": True,
         "longform_notetweets_inline_media_enabled": True,

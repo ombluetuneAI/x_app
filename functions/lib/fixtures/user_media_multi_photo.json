@@ -1,0 +1,69 @@
+{
+  "data": {
+    "user": {
+      "result": {
+        "timeline_v2": {
+          "timeline": {
+            "instructions": [
+              {
+                "type": "TimelineAddEntries",
+                "entries": [
+                  {
+                    "entryId": "profile-grid-0",
+                    "content": {
+                      "entryType": "TimelineTimelineModule",
+                      "items": [
+                        {
+                          "item": {
+                            "itemContent": {
+                              "tweet_results": {
+                                "result": {
+                                  "rest_id": "8801",
+                                  "legacy": {
+                                    "id_str": "8801",
+                                    "full_text": "Two photos",
+                                    "extended_entities": {
+                                      "media": [
+                                        {
+                                          "id_str": "m-8801-a",
+                                          "type": "photo",
+                                          "media_url_https": "https://pbs.twimg.com/media/multi_a.jpg",
+                                          "sizes": { "large": { "w": 400, "h": 400 } }
+                                        },
+                                        {
+                                          "id_str": "m-8801-b",
+                                          "type": "photo",
+                                          "media_url_https": "https://pbs.twimg.com/media/multi_b.jpg",
+                                          "sizes": { "large": { "w": 400, "h": 400 } }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "core": {
+                                    "user_results": {
+                                      "result": {
+                                        "rest_id": "42",
+                                        "core": { "name": "User", "screen_name": "exampleuser" },
+                                        "legacy": {
+                                          "profile_image_url_https": "https://pbs.twimg.com/profile_normal/u.jpg"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
