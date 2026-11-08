@@ -1,0 +1,28 @@
+name: Deploy Cloudflare Pages Preview Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: Preview branch name (Pages URL subdomain)
+        required: true
+        default: pr9-verify
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: cursor/fix-media-user-timeline-full-1b09
+
+      - name: Deploy preview to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy static --project-name=x-xiaoxu --branch=${{ inputs.branch_name }}

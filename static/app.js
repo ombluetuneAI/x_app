@@ -1128,9 +1128,9 @@ function renderProfile(data) {
     backBtn.classList.remove('hidden');
     
     // Check if there's more data
-  const hasMediaPages = mediaCursor && mediaCursor !== '' && !mediaCursor.startsWith('0|');
-  const hasTweetPages = mediaTweetsCursor && mediaTweetsCursor !== '_done';
-  hasMoreMedia = hasMediaPages || hasTweetPages;
+    const hasMediaPages = mediaCursor && mediaCursor !== '' && !mediaCursor.startsWith('0|');
+    const hasTweetPages = mediaTweetsCursor && mediaTweetsCursor !== '_done';
+    hasMoreMedia = hasMediaPages || hasTweetPages;
 }
 
 /**
