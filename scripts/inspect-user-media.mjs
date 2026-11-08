@@ -37,7 +37,9 @@ if (!user) {
 }
 
 // Re-fetch raw JSON by mirroring getUserMedia params inside xapi (parse only path here).
-const { media, nextCursor } = await api.getUserMedia(user.id, { count: 40 });
+const { media, nextCursor, sources } = await api.getUserMediaWithRetweets(user.id, {
+  count: 40,
+});
 const outPath = process.env.DUMP_PATH;
 let raw = null;
 if (outPath) {
@@ -54,6 +56,7 @@ console.log(
       screen_name: screenName,
       user_id: user.id,
       parsed_media_count: media.length,
+      media_sources: sources,
       next_cursor: nextCursor ? `${nextCursor.slice(0, 8)}…` : '',
       sample_media_ids: media.slice(0, 5).map((m) => m.media_id || m.tweet_id),
       raw_summary: raw ? summarizeUserMediaResponse(raw) : null,

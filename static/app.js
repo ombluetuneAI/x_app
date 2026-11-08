@@ -320,6 +320,8 @@ let homeLoadedIds = new Set();
 let isLoadingHome = false;
 let hasMoreHome = true;
 let mediaCursor = '';
+/** UserTweets cursor while supplementing retweet media (`_done` when exhausted). */
+let mediaTweetsCursor = '';
 let followingCache = {};
 let followersCache = {};
 let followingScreenName = '';
@@ -841,24 +843,32 @@ async function loadUserTweets(screenName, cursor = '') {
 /**
  * Load user media
  */
-async function loadUserMedia(screenName, cursor = '') {
+async function loadUserMedia(screenName, cursor = '', tweetsCursor = undefined) {
     if (isLoadingMedia) return;
     
     isLoadingMedia = true;
-    if (cursor) refreshCurrentPaginationFooter();
+    if (cursor || tweetsCursor) refreshCurrentPaginationFooter();
     
     try {
-        if (!cursor) {
+        if (!cursor && (tweetsCursor === undefined || tweetsCursor === '')) {
             document.getElementById('mediaGrid').innerHTML = '<div class="loading">Loading media...</div>';
             allMedia = [];
             loadedMediaIds = new Set();
+            mediaTweetsCursor = '';
             hasMoreMedia = true;
         }
         
-        let url = `${API_BASE}/api/user/${screenName}/media`;
-        if (cursor) {
-            url += `?cursor=${encodeURIComponent(cursor)}`;
+        const qs = new URLSearchParams();
+        if (cursor) qs.set('cursor', cursor);
+        const tc = tweetsCursor !== undefined ? tweetsCursor : mediaTweetsCursor;
+        if (tc === '_done') {
+            qs.set('tweets_cursor', '_done');
+        } else if (tc) {
+            qs.set('tweets_cursor', tc);
         }
+        let url = `${API_BASE}/api/user/${screenName}/media`;
+        const q = qs.toString();
+        if (q) url += `?${q}`;
         
         const response = await fetch(url);
         const result = await response.json();
@@ -866,6 +876,7 @@ async function loadUserMedia(screenName, cursor = '') {
         if (result.success) {
             const media = result.data.media;
             const nextCursor = result.data.cursor || '';
+            const nextTweetsCursor = result.data.tweets_cursor ?? '_done';
             
             // Filter out already loaded media
             const newMedia = media.filter(m => {
@@ -874,7 +885,7 @@ async function loadUserMedia(screenName, cursor = '') {
             });
             newMedia.forEach(m => loadedMediaIds.add(mediaDedupeKey(m)));
             
-            if (!cursor) {
+            if (!cursor && (tweetsCursor === undefined || tweetsCursor === '')) {
                 // First load - render all
                 allMedia = newMedia;
                 renderMediaGrid(newMedia, true);
@@ -886,7 +897,10 @@ async function loadUserMedia(screenName, cursor = '') {
             
             // Update cursor after successful load
             mediaCursor = nextCursor;
-            hasMoreMedia = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|') && newMedia.length > 0;
+            mediaTweetsCursor = nextTweetsCursor;
+            const hasMediaPages = nextCursor && nextCursor !== '' && !nextCursor.startsWith('0|');
+            const hasTweetPages = nextTweetsCursor && nextTweetsCursor !== '_done';
+            hasMoreMedia = hasMediaPages || hasTweetPages;
             
             // Update PhotoSwipe items if lightbox is open
             if (isLightboxOpen && pswp && !isTweetLightbox) {
@@ -984,6 +998,7 @@ function setupInfiniteScroll() {
         const hasMore = currentTab === 'media' ? hasMoreMedia : hasMorePosts;
         const loading = currentTab === 'media' ? isLoadingMedia : isLoadingPosts;
         const cursor = currentTab === 'media' ? mediaCursor : tweetsCursor;
+        const mediaSupplementCursor = mediaTweetsCursor;
         
         // Profile tabs (posts / media)
         if (currentView !== 'profile') return;
@@ -997,8 +1012,8 @@ function setupInfiniteScroll() {
                 console.log('Trigger load more posts, cursor:', cursor);
                 loadUserTweets(currentUser.screen_name, cursor);
             } else if (currentTab === 'media' && currentUser) {
-                console.log('Trigger load more media, cursor:', cursor);
-                loadUserMedia(currentUser.screen_name, cursor);
+                console.log('Trigger load more media, cursor:', cursor, 'tweets:', mediaSupplementCursor);
+                loadUserMedia(currentUser.screen_name, cursor, mediaSupplementCursor);
             }
         }
 
@@ -1018,6 +1033,7 @@ function renderProfile(data) {
     
     // Reset pagination state
     mediaCursor = data.cursor || '';
+    mediaTweetsCursor = data.tweets_cursor ?? '';
     allMedia = data.media || [];
     loadedMediaIds = new Set();
     (allMedia || []).forEach(m => {
@@ -1112,7 +1128,9 @@ function renderProfile(data) {
     backBtn.classList.remove('hidden');
     
     // Check if there's more data
-    hasMoreMedia = mediaCursor && mediaCursor !== '' && !mediaCursor.startsWith('0|');
+  const hasMediaPages = mediaCursor && mediaCursor !== '' && !mediaCursor.startsWith('0|');
+  const hasTweetPages = mediaTweetsCursor && mediaTweetsCursor !== '_done';
+  hasMoreMedia = hasMediaPages || hasTweetPages;
 }
 
 /**
@@ -1892,6 +1910,7 @@ function navigateToProfile(screenName) {
     // Reset state - clear currentUser first so switchTab won't load stale data
     currentUser = null;
     mediaCursor = '';
+    mediaTweetsCursor = '';
     tweetsCursor = '';
     allTweets = [];
     allMedia = [];

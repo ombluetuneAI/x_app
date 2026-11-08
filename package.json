@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test functions/lib/*.test.js functions/lib/**/*.test.js",
-    "pages:dev": "wrangler pages dev static --port 8788"
+    "pages:dev": "wrangler pages dev static --port 8788",
+    "pages:deploy:preview": "wrangler pages deploy static --project-name=x-xiaoxu --branch=pr9-verify"
   },
   "devDependencies": {
     "wrangler": "^3.99.0"

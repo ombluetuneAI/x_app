@@ -8,6 +8,12 @@ export async function onRequestGet(context) {
   const url = new URL(request.url);
   const count = parseInt(url.searchParams.get('count') || '50', 10);
   const cursor = url.searchParams.get('cursor') || '';
+  const tweetsCursorParam = url.searchParams.get('tweets_cursor');
+  const includeRetweets = url.searchParams.get('include_retweets') !== '0';
+  const skipTweets =
+    !includeRetweets || tweetsCursorParam === '_done';
+  const tweetsCursor =
+    tweetsCursorParam && tweetsCursorParam !== '_done' ? tweetsCursorParam : '';
 
   return withApiHandler(env, async () => {
     const api = createXApi(env);
@@ -15,11 +21,19 @@ export async function onRequestGet(context) {
     if (!user) {
       return apiError('User not found', 404);
     }
-    const { media, nextCursor } = await api.getUserMedia(user.id, { count, cursor });
+    const { media, nextCursor, nextTweetsCursor, sources } =
+      await api.getUserMediaWithRetweets(user.id, {
+        count,
+        cursor,
+        tweetsCursor,
+        skipTweets,
+      });
     return apiSuccess({
       user: userToDict(user),
       media,
       cursor: nextCursor,
+      tweets_cursor: nextTweetsCursor,
+      media_sources: sources,
     });
   });
 }

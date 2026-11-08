@@ -14,6 +14,7 @@ import {
   parseMediaList,
 } from './parsers.js';
 import { userFromV1Dict } from './models.js';
+import { enrichUserMediaPage } from './userMediaEnrich.js';
 
 const FRIENDSHIP_FORM = {
   include_profile_interstitial_type: 1,
@@ -117,6 +118,42 @@ export function createXApi(env) {
       );
       const data = await http.get(APIEndpoints.USER_MEDIA, params);
       return parseMediaList(data);
+    },
+
+    /**
+     * UserMedia GraphQL omits retweeted photo/video; supplement from UserTweets.
+     */
+    async getUserMediaWithRetweets(
+      userId,
+      { count = 50, cursor = '', tweetsCursor = '', skipTweets = false } = {}
+    ) {
+      const mediaResult = await this.getUserMedia(userId, { count, cursor });
+
+      let tweets = [];
+      let nextTweetsCursor = '_done';
+      if (!skipTweets) {
+        const tweetCount = Math.max(count, 40);
+        const tweetsResult = await this.getUserTweets(userId, {
+          count: tweetCount,
+          cursor: tweetsCursor,
+        });
+        tweets = tweetsResult.tweets;
+        const tc = tweetsResult.nextCursor;
+        nextTweetsCursor =
+          tc && tc !== '' && !tc.startsWith('0|') ? tc : '_done';
+      }
+
+      const enriched = enrichUserMediaPage({
+        nativeMedia: mediaResult.media,
+        tweets,
+      });
+
+      return {
+        media: enriched.media,
+        nextCursor: mediaResult.nextCursor,
+        nextTweetsCursor,
+        sources: enriched.sources,
+      };
     },
 
     async getFollowingPage(userId, { count = 50, cursor = '' }) {
