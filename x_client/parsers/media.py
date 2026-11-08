@@ -6,6 +6,7 @@ This module provides parsers for media-related API responses.
 from typing import Dict, Any, List, Tuple
 
 from ..models import Media
+from ..models.tweet import Tweet
 from .base import TimelineParser
 
 
@@ -49,7 +50,11 @@ class MediaParser(TimelineParser):
                         content = entry.get("content", {})
                         entry_type = content.get("entryType", "")
                         
-                        if entry_type == "TimelineTimelineModule":
+                        if entry_type == "TimelineTimelineItem":
+                            item_content = content.get("itemContent", {})
+                            if item_content:
+                                item_contents.append(item_content)
+                        elif entry_type == "TimelineTimelineModule":
                             items = content.get("items", [])
                             # Extract itemContent from each item
                             for item in items:
@@ -87,35 +92,34 @@ class MediaParser(TimelineParser):
             tweet_results = item_content.get("tweet_results", {})
             if not tweet_results:
                 continue
-            
-            result = tweet_results.get("result", {})
-            if not result:
+
+            try:
+                tweet = Tweet.from_dict(tweet_results)
+            except Exception:
                 continue
-            
-            # Handle visibility wrapper
-            if "tweet" in result:
-                result = result["tweet"]
-            
-            legacy = result.get("legacy", {})
-            
-            # Get tweet info
-            tweet_id = str(result.get("rest_id", "") or legacy.get("id_str", ""))
-            tweet_text = legacy.get("full_text", "") or legacy.get("text", "")
-            
-            # Check if tweet has media - try extended_entities first, then entities
-            media_list = legacy.get("extended_entities", {}).get("media", [])
-            if not media_list:
-                media_list = legacy.get("entities", {}).get("media", [])
-            if not media_list:
+            if not tweet:
                 continue
-            
-            # Parse media objects with tweet context
-            for media_data in media_list:
-                # Add tweet info to media data
-                media_data["tweet_id"] = tweet_id
-                media_data["tweet_text"] = tweet_text
-                media = Media.from_dict(media_data)
-                all_media.append(media)
+
+            if tweet.media:
+                source = tweet
+            elif tweet.retweeted_tweet and tweet.retweeted_tweet.media:
+                source = tweet.retweeted_tweet
+            else:
+                continue
+
+            for media in source.media:
+                all_media.append(
+                    Media(
+                        type=media.type,
+                        url=media.url,
+                        video_url=media.video_url,
+                        width=media.width,
+                        height=media.height,
+                        duration=media.duration,
+                        tweet_id=source.id,
+                        tweet_text=source.text,
+                    )
+                )
         
         return all_media, next_cursor
     

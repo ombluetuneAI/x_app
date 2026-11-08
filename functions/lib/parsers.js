@@ -1,6 +1,6 @@
 import { filterTimelineEntries } from './adFilter.js';
 import { isPromotedTimelineEntry, isPromotedItemContent } from './adFilter.js';
-import { userFromDict, mediaFromDict } from './models.js';
+import { userFromDict } from './models.js';
 import { tweetFromDict } from './models.js';
 
 export function safeGet(data, ...keys) {
@@ -209,6 +209,28 @@ export function parseTweets(data) {
   return { tweets, nextCursor };
 }
 
+/**
+ * Extract display media from a UserMedia tweet_results payload (including retweets).
+ * @param {object} tweetResults
+ * @returns {import('./models.js').ReturnType<typeof mediaFromDict>[]}
+ */
+export function mediaFromTweetResults(tweetResults) {
+  const tweet = tweetFromDict(tweetResults);
+  if (!tweet) return [];
+  const source =
+    tweet.media?.length > 0
+      ? tweet
+      : tweet.retweeted_tweet?.media?.length > 0
+        ? tweet.retweeted_tweet
+        : null;
+  if (!source) return [];
+  return source.media.map((m) => ({
+    ...m,
+    tweet_id: source.id,
+    tweet_text: source.text,
+  }));
+}
+
 export function parseMediaList(data) {
   try {
     const userResult = data.data.user.result;
@@ -226,7 +248,13 @@ export function parseMediaList(data) {
         allEntries.push(...entries);
         for (const entry of entries) {
           const content = entry.content || {};
-          if (content.entryType === 'TimelineTimelineModule') {
+          const entryType = content.entryType || '';
+          if (entryType === 'TimelineTimelineItem') {
+            const itemContent = content.itemContent;
+            if (itemContent && !isPromotedItemContent(itemContent)) {
+              itemContents.push(itemContent);
+            }
+          } else if (entryType === 'TimelineTimelineModule') {
             for (const item of content.items || []) {
               const itemContent = item.item?.itemContent;
               if (itemContent && !isPromotedItemContent(itemContent)) {
@@ -252,24 +280,7 @@ export function parseMediaList(data) {
     for (const itemContent of itemContents) {
       const tweetResults = itemContent.tweet_results;
       if (!tweetResults) continue;
-      let result = tweetResults.result;
-      if (!result) continue;
-      if (result.tweet) result = result.tweet;
-      const legacy = result.legacy || {};
-      const tweetId = String(result.rest_id || legacy.id_str || '');
-      const tweetText = legacy.full_text || legacy.text || '';
-      let mediaList = legacy.extended_entities?.media || [];
-      if (!mediaList.length) mediaList = legacy.entities?.media || [];
-      if (!mediaList.length) continue;
-      for (const mediaData of mediaList) {
-        allMedia.push(
-          mediaFromDict({
-            ...mediaData,
-            tweet_id: tweetId,
-            tweet_text: tweetText,
-          })
-        );
-      }
+      allMedia.push(...mediaFromTweetResults(tweetResults));
     }
     return { media: allMedia, nextCursor };
   } catch {
