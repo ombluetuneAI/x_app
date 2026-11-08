@@ -61,6 +61,7 @@ export const Features = {
     freedom_of_speech_not_reach_fetch_enabled: true,
     standardized_nudges_misinfo: true,
     tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+    tweet_with_visibility_results_prefer_gql_media_interstitial_enabled: true,
     rweb_video_timestamps_enabled: true,
     longform_notetweets_rich_text_read_enabled: true,
     longform_notetweets_inline_media_enabled: true,

@@ -138,6 +138,7 @@ export function mediaFromDict(data) {
   const sizes = data.sizes?.large || {};
   return {
     type: mediaType,
+    media_id: String(data.id_str || data.media_key || ''),
     url: mediaUrl,
     video_url: videoUrl,
     width: sizes.w || 0,

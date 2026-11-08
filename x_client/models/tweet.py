@@ -30,6 +30,7 @@ class Media:
     duration: float = 0.0
     tweet_id: str = ""
     tweet_text: str = ""
+    media_id: str = ""
     
     @classmethod
     def from_dict(cls, data: dict) -> "Media":
@@ -75,12 +76,14 @@ class Media:
             duration=duration,
             tweet_id=data.get("tweet_id", ""),
             tweet_text=data.get("tweet_text", ""),
+            media_id=str(data.get("id_str", "") or data.get("media_key", "")),
         )
     
     def to_dict(self) -> dict:
         """Convert Media to dictionary."""
         return {
             "type": self.type,
+            "media_id": self.media_id,
             "url": self.url,
             "video_url": self.video_url,
             "width": self.width,

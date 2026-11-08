@@ -111,22 +111,47 @@ def get_user_media(screen_name):
         
         count = request.args.get('count', 50, type=int)
         cursor = request.args.get('cursor', '')
-        
-        media_list, next_cursor = client.media.get_user_media(
-            user.id, 
-            count=count, 
-            max_pages=1, 
-            cursor=cursor
+        tweets_cursor_param = request.args.get('tweets_cursor')
+        include_retweets = request.args.get('include_retweets', '1') != '0'
+        skip_tweets = not include_retweets or tweets_cursor_param == '_done'
+        tweets_cursor = (
+            ''
+            if not tweets_cursor_param or tweets_cursor_param == '_done'
+            else tweets_cursor_param
         )
-        
-        formatted_media = [m.to_dict() for m in media_list]
-        
+
+        media_list, next_cursor = client.media.get_user_media(
+            user.id,
+            count=count,
+            max_pages=1,
+            cursor=cursor,
+        )
+
+        tweets = []
+        next_tweets_cursor = '_done'
+        if not skip_tweets:
+            tweet_count = max(count, 40)
+            tweets, tc = client.tweet.get_user_tweets(
+                user.id,
+                count=tweet_count,
+                max_pages=1,
+                cursor=tweets_cursor,
+                include_promoted_content=False,
+            )
+            next_tweets_cursor = tc if tc and not tc.startswith('0|') else '_done'
+
+        from x_client.user_media_enrich import enrich_user_media_page
+
+        enriched = enrich_user_media_page(media_list, tweets)
+
         return jsonify({
             "success": True,
             "data": {
                 "user": user.to_dict(),
-                "media": formatted_media,
-                "cursor": next_cursor
+                "media": enriched["media"],
+                "cursor": next_cursor,
+                "tweets_cursor": next_tweets_cursor,
+                "media_sources": enriched["sources"],
             }
         })
     except Exception as e:

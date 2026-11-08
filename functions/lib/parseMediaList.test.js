@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { parseMediaList, mediaFromTweetResults } from './parsers.js';
+import {
+  parseMediaList,
+  mediaFromTweetResults,
+  summarizeUserMediaResponse,
+} from './parsers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, 'fixtures');
@@ -53,4 +57,33 @@ test('mediaFromTweetResults falls back to nested retweet media', () => {
   const items = mediaFromTweetResults(item.tweet_results);
   assert.equal(items.length, 1);
   assert.equal(items[0].tweet_id, '1500');
+});
+
+test('mediaFromTweetResults reads media on TweetWithVisibilityResults outer legacy', () => {
+  const data = loadFixture('user_media_visibility_outer.json');
+  const item =
+    data.data.user.result.timeline_v2.timeline.instructions[0].entries[0].content.items[1].item
+      .itemContent;
+  const items = mediaFromTweetResults(item.tweet_results);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].url, 'https://pbs.twimg.com/media/visibility_outer_photo.jpg');
+  assert.equal(items[0].media_id, 'media-9101');
+});
+
+test('parseMediaList returns every photo on multi-image tweets', () => {
+  const data = loadFixture('user_media_multi_photo.json');
+  const { media } = parseMediaList(data);
+  assert.equal(media.length, 2);
+  assert.deepEqual(
+    media.map((m) => m.media_id).sort(),
+    ['m-8801-a', 'm-8801-b']
+  );
+});
+
+test('summarizeUserMediaResponse counts outer and retweet fallback paths', () => {
+  const data = loadFixture('user_media_timeline.json');
+  const summary = summarizeUserMediaResponse(data);
+  assert.equal(summary.itemCount, 3);
+  assert.equal(summary.mediaCount, 3);
+  assert.equal(summary.retweetFallbackHits, 2);
 });
