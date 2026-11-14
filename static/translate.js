@@ -207,11 +207,40 @@ function saveSettings() {
 }
 
 /**
+ * Resolve translate container (timeline vs tweet-detail / reply markup).
+ * Keep in sync with functions/lib/translateArea.js
+ */
+function resolveTranslateArea(tweetId, btn) {
+    if (btn && typeof btn.closest === 'function') {
+        const fromBtn = btn.closest('.tweet-translate-area');
+        if (fromBtn) {
+            return fromBtn;
+        }
+    }
+    return (
+        document.getElementById(`translate-${tweetId}`) ||
+        document.getElementById(`translate-detail-${tweetId}`)
+    );
+}
+
+/**
  * Translate a tweet to Chinese via NiuTrans API
  */
 async function translateTweet(tweetId, btn) {
-    const area = document.getElementById(`translate-${tweetId}`);
+    const area = resolveTranslateArea(tweetId, btn);
+    if (!area) {
+        if (typeof showToast === 'function') {
+            showToast('无法找到翻译区域', 'error');
+        }
+        return;
+    }
     const translationDiv = area.querySelector('.tweet-translation');
+    if (!translationDiv) {
+        if (typeof showToast === 'function') {
+            showToast('无法找到翻译区域', 'error');
+        }
+        return;
+    }
 
     // If already translated, toggle visibility
     if (translationDiv.textContent) {
