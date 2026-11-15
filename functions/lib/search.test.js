@@ -8,6 +8,8 @@ import {
   buildTrendsParams,
   buildTypeaheadParams,
   getSearchTimelineEndpoint,
+  Features,
+  APIEndpoints,
 } from './constants.js';
 import {
   parseTweets,
@@ -52,8 +54,16 @@ test('buildTrendsParams requests trends guide feed', () => {
   assert.equal(params.requestContext, 'launch');
 });
 
+test('SearchTimeline default id and features match API catalog fixture', () => {
+  const catalog = loadFixture('search_timeline_api_catalog.json');
+  assert.equal(APIEndpoints.SEARCH_TIMELINE_QUERY_ID_DEFAULT, catalog.queryId);
+  const features = JSON.parse(Features.SEARCH_TIMELINE);
+  assert.equal(Object.keys(features).length, Object.keys(catalog.features).length);
+  assert.deepEqual(features, catalog.features);
+});
+
 test('getSearchTimelineEndpoint uses env override', () => {
-  assert.match(getSearchTimelineEndpoint({}), /3fEctOs2-FvTB7_mvm1hrQ\/SearchTimeline/);
+  assert.match(getSearchTimelineEndpoint({}), /vLHjqbDv7TPFMBkIIO1nOA\/SearchTimeline/);
   assert.match(
     getSearchTimelineEndpoint({ X_SEARCH_TIMELINE_QUERY_ID: 'customSearchId' }),
     /customSearchId\/SearchTimeline/

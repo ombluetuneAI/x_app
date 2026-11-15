@@ -5,7 +5,7 @@ X_CT0=your_ct0_csrf_token
 # X_BEARER=...
 # Optional: override GraphQL query ids when X rotates operations
 # X_TWEET_DETAIL_QUERY_ID=...
-# X_SEARCH_TIMELINE_QUERY_ID=3fEctOs2-FvTB7_mvm1hrQ
+# X_SEARCH_TIMELINE_QUERY_ID=vLHjqbDv7TPFMBkIIO1nOA
 ACCESS_KEY=choose-a-shared-secret
 NIUTRANS_APP_ID=your_niutrans_app_id
 NIUTRANS_API_KEY=your_niutrans_api_key
