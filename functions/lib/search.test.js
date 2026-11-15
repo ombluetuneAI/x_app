@@ -35,8 +35,8 @@ test('buildSearchTimelineVariables sets product and cursor', () => {
   assert.equal(base.product, 'Latest');
   assert.equal(base.count, 15);
   assert.equal(base.querySource, 'typed_query');
-  assert.equal(base.withGrokTranslatedBio, true);
-  assert.equal(base.withQuickPromoteEligibilityTweetFields, false);
+  assert.equal(base.withGrokTranslatedBio, undefined);
+  assert.equal(base.withQuickPromoteEligibilityTweetFields, undefined);
   assert.equal(base.cursor, undefined);
 
   const paged = buildSearchTimelineVariables({
@@ -54,12 +54,14 @@ test('buildTrendsParams requests trends guide feed', () => {
   assert.equal(params.requestContext, 'launch');
 });
 
-test('SearchTimeline default id and features match API catalog fixture', () => {
+test('SearchTimeline default id and features match GraphQL catalog (42 switches)', () => {
   const catalog = loadFixture('search_timeline_api_catalog.json');
   assert.equal(APIEndpoints.SEARCH_TIMELINE_QUERY_ID_DEFAULT, catalog.queryId);
+  assert.equal(catalog.featureSwitchCount, 42);
   const features = JSON.parse(Features.SEARCH_TIMELINE);
-  assert.equal(Object.keys(features).length, Object.keys(catalog.features).length);
+  assert.equal(Object.keys(features).length, 42);
   assert.deepEqual(features, catalog.features);
+  assert.equal(features.responsive_web_made_on_x_label_enabled, false);
 });
 
 test('getSearchTimelineEndpoint uses env override', () => {

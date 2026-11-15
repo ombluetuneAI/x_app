@@ -269,6 +269,7 @@ export const Features = {
     responsive_web_nested_quote_preview_enabled: true,
     responsive_web_grok_image_annotation_enabled: true,
     responsive_web_grok_imagine_annotation_enabled: true,
+    responsive_web_made_on_x_label_enabled: false,
     responsive_web_grok_community_note_auto_translation_is_enabled: true,
     responsive_web_enhance_cards_enabled: false,
   }),
@@ -327,8 +328,6 @@ export function buildSearchTimelineVariables({ rawQuery, product, count = 20, cu
     count,
     querySource: 'typed_query',
     product,
-    withGrokTranslatedBio: true,
-    withQuickPromoteEligibilityTweetFields: false,
   };
   if (cursor) variables.cursor = cursor;
   return variables;
