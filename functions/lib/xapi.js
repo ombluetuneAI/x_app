@@ -2,6 +2,7 @@ import {
   APIEndpoints,
   Features,
   buildGraphqlParams,
+  buildSearchTimelinePostBody,
   buildSearchTimelineVariables,
   buildTrendsParams,
   buildTypeaheadParams,
@@ -225,12 +226,9 @@ export function createXApi(env) {
         count,
         cursor,
       });
-      const params = buildGraphqlParams(
-        variables,
-        Features.SEARCH_TIMELINE,
-        Features.FIELD_TOGGLES_SEARCH
-      );
-      const data = await http.get(getSearchTimelineEndpoint(env), params);
+      const data = await http.post(getSearchTimelineEndpoint(env), {
+        json: buildSearchTimelinePostBody(variables),
+      });
       return parseUsersFromTimeline(data);
     },
 
@@ -243,12 +241,9 @@ export function createXApi(env) {
         count,
         cursor,
       });
-      const params = buildGraphqlParams(
-        variables,
-        Features.SEARCH_TIMELINE,
-        Features.FIELD_TOGGLES_SEARCH
-      );
-      const data = await http.get(getSearchTimelineEndpoint(env), params);
+      const data = await http.post(getSearchTimelineEndpoint(env), {
+        json: buildSearchTimelinePostBody(variables),
+      });
       return parseTweets(data);
     },
 

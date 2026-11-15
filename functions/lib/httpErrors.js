@@ -9,7 +9,7 @@ import { humanizeGraphqlErrors } from './graphqlErrors.js';
  */
 export function friendlyXHttpError(statusCode, path, bodyText = '', body) {
   if (statusCode === 404 && /SearchTimeline/i.test(path)) {
-    return '帖子搜索接口不可用（SearchTimeline GraphQL query id 可能已过期，可设置环境变量 X_SEARCH_TIMELINE_QUERY_ID）';
+    return '帖子搜索接口不可用（SearchTimeline 请求被拒绝；请确认使用 POST，且 query id / feature 与 X 当前要求一致，可设置 X_SEARCH_TIMELINE_QUERY_ID）';
   }
   if (body?.errors?.length) {
     return humanizeGraphqlErrors(body);

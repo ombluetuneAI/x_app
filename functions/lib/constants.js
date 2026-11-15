@@ -333,6 +333,19 @@ export function buildSearchTimelineVariables({ rawQuery, product, count = 20, cu
   return variables;
 }
 
+/**
+ * SearchTimeline must be POST with a JSON body (GET returns 404 on current X).
+ * @param {Record<string, unknown>} variables
+ * @param {string} [fieldTogglesJson]
+ */
+export function buildSearchTimelinePostBody(variables, fieldTogglesJson = Features.FIELD_TOGGLES_SEARCH) {
+  return {
+    variables,
+    features: JSON.parse(Features.SEARCH_TIMELINE),
+    fieldToggles: JSON.parse(fieldTogglesJson),
+  };
+}
+
 /** Query params for `GET /i/api/2/guide.json` (Explore → Trends). */
 export function buildTrendsParams() {
   return {

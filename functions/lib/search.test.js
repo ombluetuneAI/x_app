@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
+  buildSearchTimelinePostBody,
   buildSearchTimelineVariables,
   buildTrendsParams,
   buildTypeaheadParams,
@@ -52,6 +53,21 @@ test('buildTrendsParams requests trends guide feed', () => {
   const params = buildTrendsParams();
   assert.equal(params.candidate_source, 'trends');
   assert.equal(params.requestContext, 'launch');
+});
+
+test('buildSearchTimelinePostBody uses POST JSON shape with feature objects', () => {
+  const variables = buildSearchTimelineVariables({
+    rawQuery: 'elon',
+    product: 'Latest',
+    count: 20,
+  });
+  const body = buildSearchTimelinePostBody(variables);
+  assert.deepEqual(body.variables, variables);
+  assert.equal(typeof body.features, 'object');
+  assert.equal(Object.keys(body.features).length, 42);
+  assert.equal(typeof body.fieldToggles, 'object');
+  assert.equal(body.fieldToggles.withArticleRichContentState, true);
+  assert.equal(body.fieldToggles.withArticlePlainText, false);
 });
 
 test('SearchTimeline default id and features match GraphQL catalog (42 switches)', () => {
