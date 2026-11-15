@@ -7,6 +7,7 @@ import {
   buildSearchTimelineVariables,
   buildTrendsParams,
   buildTypeaheadParams,
+  getSearchTimelineEndpoint,
 } from './constants.js';
 import {
   parseTweets,
@@ -32,6 +33,8 @@ test('buildSearchTimelineVariables sets product and cursor', () => {
   assert.equal(base.product, 'Latest');
   assert.equal(base.count, 15);
   assert.equal(base.querySource, 'typed_query');
+  assert.equal(base.withGrokTranslatedBio, true);
+  assert.equal(base.withQuickPromoteEligibilityTweetFields, false);
   assert.equal(base.cursor, undefined);
 
   const paged = buildSearchTimelineVariables({
@@ -47,6 +50,14 @@ test('buildTrendsParams requests trends guide feed', () => {
   const params = buildTrendsParams();
   assert.equal(params.candidate_source, 'trends');
   assert.equal(params.requestContext, 'launch');
+});
+
+test('getSearchTimelineEndpoint uses env override', () => {
+  assert.match(getSearchTimelineEndpoint({}), /3fEctOs2-FvTB7_mvm1hrQ\/SearchTimeline/);
+  assert.match(
+    getSearchTimelineEndpoint({ X_SEARCH_TIMELINE_QUERY_ID: 'customSearchId' }),
+    /customSearchId\/SearchTimeline/
+  );
 });
 
 test('buildTypeaheadParams limits to users', () => {

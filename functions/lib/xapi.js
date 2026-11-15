@@ -6,6 +6,7 @@ import {
   buildTrendsParams,
   buildTypeaheadParams,
   buildTweetDetailVariables,
+  getSearchTimelineEndpoint,
   getTweetDetailEndpoint,
 } from './constants.js';
 import { parseTweetDetail } from './parsers.js';
@@ -229,7 +230,7 @@ export function createXApi(env) {
         Features.SEARCH_TIMELINE,
         Features.FIELD_TOGGLES_SEARCH
       );
-      const data = await http.get(APIEndpoints.SEARCH_TIMELINE, params);
+      const data = await http.get(getSearchTimelineEndpoint(env), params);
       return parseUsersFromTimeline(data);
     },
 
@@ -247,7 +248,7 @@ export function createXApi(env) {
         Features.SEARCH_TIMELINE,
         Features.FIELD_TOGGLES_SEARCH
       );
-      const data = await http.get(APIEndpoints.SEARCH_TIMELINE, params);
+      const data = await http.get(getSearchTimelineEndpoint(env), params);
       return parseTweets(data);
     },
 

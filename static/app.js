@@ -282,6 +282,9 @@ function removeProxy(containerId, index) {
 function formatApiError(error, fallback = 'Something went wrong') {
     if (!error) return fallback;
     const str = String(error).trim();
+    if (str === 'Unknown error') {
+        return '加载失败，请稍后重试';
+    }
     if (str.startsWith('{') || str.startsWith('[')) {
         try {
             const parsed = JSON.parse(str);
@@ -605,6 +608,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.search-tab').forEach(tab => {
         tab.addEventListener('click', () => switchSearchTab(tab.dataset.searchTab));
     });
+
+    const trendsListEl = document.getElementById('trendsList');
+    if (trendsListEl) {
+        trendsListEl.addEventListener('click', (event) => {
+            const item = event.target.closest('.trend-item');
+            if (!item?.dataset.trendName) return;
+            navigateToTrendSearch(item.dataset.trendName);
+        });
+        trendsListEl.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const item = event.target.closest('.trend-item');
+            if (!item?.dataset.trendName) return;
+            event.preventDefault();
+            navigateToTrendSearch(item.dataset.trendName);
+        });
+    }
     
     // Infinite scroll with Intersection Observer
     setupInfiniteScroll();
@@ -2032,19 +2051,43 @@ async function loadTrends() {
 
 function renderTrendsList(trends) {
     const list = document.getElementById('trendsList');
+    list.replaceChildren();
     if (!trends?.length) {
-        list.innerHTML = '<div class="loading">暂无热门话题</div>';
+        const empty = document.createElement('div');
+        empty.className = 'loading';
+        empty.textContent = '暂无热门话题';
+        list.appendChild(empty);
         return;
     }
-    list.innerHTML = trends.map((t, i) => `
-        <div class="trend-item" onclick="navigateToTrendSearch(${JSON.stringify(t.name)})">
-            <span class="trend-rank">${i + 1}</span>
-            <div class="trend-body">
-                <div class="trend-name">${escapeHtml(t.name)}</div>
-                ${t.tweet_count ? `<div class="trend-meta">${escapeHtml(t.tweet_count)}</div>` : ''}
-            </div>
-        </div>
-    `).join('');
+    trends.forEach((t, i) => {
+        const row = document.createElement('div');
+        row.className = 'trend-item';
+        row.dataset.trendName = t.name;
+        row.setAttribute('role', 'button');
+        row.tabIndex = 0;
+
+        const rank = document.createElement('span');
+        rank.className = 'trend-rank';
+        rank.textContent = String(i + 1);
+
+        const body = document.createElement('div');
+        body.className = 'trend-body';
+
+        const name = document.createElement('div');
+        name.className = 'trend-name';
+        name.textContent = t.name || '';
+        body.appendChild(name);
+
+        if (t.tweet_count) {
+            const meta = document.createElement('div');
+            meta.className = 'trend-meta';
+            meta.textContent = t.tweet_count;
+            body.appendChild(meta);
+        }
+
+        row.append(rank, body);
+        list.appendChild(row);
+    });
 }
 
 function onTweetTextOpen(event, tweetId) {
