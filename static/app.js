@@ -282,6 +282,9 @@ function removeProxy(containerId, index) {
 function formatApiError(error, fallback = 'Something went wrong') {
     if (!error) return fallback;
     const str = String(error).trim();
+    if (str === 'Unknown error') {
+        return '加载失败，请稍后重试';
+    }
     if (str.startsWith('{') || str.startsWith('[')) {
         try {
             const parsed = JSON.parse(str);
@@ -362,6 +365,23 @@ let tweetDetailLoadedReplyIds = new Set();
 let isLoadingTweetDetail = false;
 let hasMoreTweetReplies = true;
 
+// Search state
+let searchQuery = '';
+let searchTab = 'users';
+let searchUsers = [];
+let searchTweets = [];
+let searchUsersCursor = '';
+let searchTweetsCursor = '';
+let isLoadingSearchUsers = false;
+let isLoadingSearchTweets = false;
+let hasMoreSearchUsers = true;
+let hasMoreSearchTweets = true;
+let loadedSearchTweetIds = new Set();
+
+// Trends state
+let trendsItems = [];
+let isLoadingTrends = false;
+
 // Tweet media lightbox state
 let tweetLightboxMedia = [];  // Media array for current tweet lightbox
 let isTweetLightbox = false;   // Whether lightbox is showing tweet media (vs profile media grid)
@@ -414,6 +434,22 @@ const PAGINATION_FOOTERS = {
             loading: isLoadingTweetDetail,
             hasMore: hasMoreTweetReplies,
             hasContent: tweetDetailReplies.length > 0,
+        }),
+    },
+    searchPosts: {
+        id: 'searchPaginationFooter',
+        getState: () => ({
+            loading: isLoadingSearchTweets,
+            hasMore: hasMoreSearchTweets,
+            hasContent: searchTweets.length > 0,
+        }),
+    },
+    searchUsers: {
+        id: 'searchUsersPaginationFooter',
+        getState: () => ({
+            loading: isLoadingSearchUsers,
+            hasMore: hasMoreSearchUsers,
+            hasContent: searchUsers.length > 0,
         }),
     },
 };
@@ -471,6 +507,9 @@ function getCurrentPaginationKey() {
         if (currentTab === 'posts') return 'posts';
         if (currentTab === 'media') return 'media';
     }
+    if (currentView === 'search') {
+        return searchTab === 'posts' ? 'searchPosts' : 'searchUsers';
+    }
     return null;
 }
 
@@ -498,6 +537,8 @@ const profileView = document.getElementById('profileView');
 const tweetDetailView = document.getElementById('tweetDetailView');
 const followingView = document.getElementById('followingView');
 const followersView = document.getElementById('followersView');
+const searchView = document.getElementById('searchView');
+const trendsView = document.getElementById('trendsView');
 const backBtn = document.getElementById('backBtn');
 const headerTitle = document.getElementById('headerTitle');
 
@@ -523,6 +564,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showFollowers(screenName);
     } else if (view === 'tweet' && tweetParam) {
         openTweetDetailView(tweetParam, false);
+    } else if (view === 'search') {
+        const q = params.get('q') || '';
+        const tab = params.get('tab') || 'posts';
+        openSearchView(q, tab, false);
+    } else if (view === 'trends') {
+        openTrendsView(false);
     } else if (screenName) {
         // Default: show user profile when user param is present
         loadUserProfile(screenName);
@@ -557,6 +604,26 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.home-tab').forEach(tab => {
         tab.addEventListener('click', () => switchHomeFeed(tab.dataset.feed));
     });
+
+    document.querySelectorAll('.search-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchSearchTab(tab.dataset.searchTab));
+    });
+
+    const trendsListEl = document.getElementById('trendsList');
+    if (trendsListEl) {
+        trendsListEl.addEventListener('click', (event) => {
+            const item = event.target.closest('.trend-item');
+            if (!item?.dataset.trendName) return;
+            navigateToTrendSearch(item.dataset.trendName);
+        });
+        trendsListEl.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const item = event.target.closest('.trend-item');
+            if (!item?.dataset.trendName) return;
+            event.preventDefault();
+            navigateToTrendSearch(item.dataset.trendName);
+        });
+    }
     
     // Infinite scroll with Intersection Observer
     setupInfiniteScroll();
@@ -571,8 +638,11 @@ function showHome() {
     tweetDetailView.classList.add('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
+    searchView.classList.add('hidden');
+    trendsView.classList.add('hidden');
     backBtn.classList.add('hidden');
-    headerTitle.textContent = 'Home';
+    headerTitle.textContent = '首页';
+    document.getElementById('headerSubtitle').textContent = '';
     currentView = 'home';
     
     // Update URL
@@ -581,6 +651,8 @@ function showHome() {
     url.searchParams.delete('view');
     url.searchParams.delete('tweet');
     url.searchParams.delete('t');
+    url.searchParams.delete('q');
+    url.searchParams.delete('tab');
     window.history.replaceState({ view: 'home' }, '', url);
     
     // Load home feed if not already loaded
@@ -992,6 +1064,25 @@ function setupInfiniteScroll() {
                 lastTriggerTime = now;
                 loadTweetDetail(tweetDetailId, tweetDetailCursor);
             }
+            return;
+        }
+
+        // Search results
+        if (currentView === 'search') {
+            if (searchTab === 'posts') {
+                if (!hasMoreSearchTweets || isLoadingSearchTweets) return;
+                if (distanceToBottom < threshold && distanceToBottom > -100 && searchTweetsCursor) {
+                    lastTriggerTime = now;
+                    loadSearchTweets(searchTweetsCursor);
+                }
+            } else {
+                if (!hasMoreSearchUsers || isLoadingSearchUsers) return;
+                if (distanceToBottom < threshold && distanceToBottom > -100 && searchUsersCursor) {
+                    lastTriggerTime = now;
+                    loadSearchUsers(searchUsersCursor);
+                }
+            }
+            refreshCurrentPaginationFooter();
             return;
         }
         
@@ -1668,6 +1759,335 @@ function hideAllMainViews() {
     tweetDetailView.classList.add('hidden');
     followingView.classList.add('hidden');
     followersView.classList.add('hidden');
+    searchView.classList.add('hidden');
+    trendsView.classList.add('hidden');
+}
+
+function submitHomeSearch(event) {
+    event.preventDefault();
+    const q = document.getElementById('homeSearchInput').value.trim();
+    navigateToSearch(q, 'posts');
+    return false;
+}
+
+function submitSearchView(event) {
+    event.preventDefault();
+    const q = document.getElementById('searchViewInput').value.trim();
+    runSearch(q, searchTab, true);
+    return false;
+}
+
+function navigateToSearch(query, tab = 'posts') {
+    const q = String(query || '').trim();
+    const url = new URL(window.location);
+    url.searchParams.set('view', 'search');
+    url.searchParams.set('q', q);
+    url.searchParams.set('tab', tab);
+    url.searchParams.delete('user');
+    url.searchParams.delete('tweet');
+    url.searchParams.delete('t');
+    window.history.pushState({ view: 'search', q, tab }, '', url);
+    openSearchView(q, tab, true);
+}
+
+function navigateToTrends() {
+    const url = new URL(window.location);
+    url.searchParams.set('view', 'trends');
+    url.searchParams.delete('user');
+    url.searchParams.delete('q');
+    url.searchParams.delete('tab');
+    url.searchParams.delete('tweet');
+    url.searchParams.delete('t');
+    window.history.pushState({ view: 'trends' }, '', url);
+    openTrendsView(true);
+}
+
+function navigateToTrendSearch(trendName) {
+    navigateToSearch(trendName, 'posts');
+}
+
+function switchSearchTab(tab) {
+    if (tab === searchTab) return;
+    searchTab = tab;
+    document.querySelectorAll('.search-tab').forEach((el) => {
+        el.classList.toggle('active-search-tab', el.dataset.searchTab === tab);
+    });
+    document.getElementById('searchUsersPanel').classList.toggle('hidden', tab !== 'users');
+    document.getElementById('searchPostsPanel').classList.toggle('hidden', tab !== 'posts');
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tab);
+    window.history.replaceState({ view: 'search', q: searchQuery, tab }, '', url);
+    if (searchQuery.trim()) {
+        if (tab === 'users' && searchUsers.length === 0) {
+            loadSearchUsers();
+        } else if (tab === 'posts' && searchTweets.length === 0) {
+            loadSearchTweets();
+        }
+    }
+    hideAllPaginationFooters();
+    refreshCurrentPaginationFooter();
+}
+
+function resetSearchState() {
+    searchUsers = [];
+    searchTweets = [];
+    searchUsersCursor = '';
+    searchTweetsCursor = '';
+    hasMoreSearchUsers = true;
+    hasMoreSearchTweets = true;
+    loadedSearchTweetIds = new Set();
+    document.getElementById('searchUsersList').innerHTML = '';
+    document.getElementById('searchPostsList').innerHTML = '';
+}
+
+function openSearchView(query, tab, pushAlreadyDone = false) {
+    hideAllMainViews();
+    searchView.classList.remove('hidden');
+    backBtn.classList.remove('hidden');
+    headerTitle.textContent = '搜索';
+    document.getElementById('headerSubtitle').textContent = query ? `「${query}」` : '';
+    currentView = 'search';
+    searchTab = tab === 'users' ? 'users' : 'posts';
+    searchQuery = String(query || '');
+    document.getElementById('searchViewInput').value = searchQuery;
+    document.querySelectorAll('.search-tab').forEach((el) => {
+        el.classList.toggle('active-search-tab', el.dataset.searchTab === searchTab);
+    });
+    document.getElementById('searchUsersPanel').classList.toggle('hidden', searchTab !== 'users');
+    document.getElementById('searchPostsPanel').classList.toggle('hidden', searchTab !== 'posts');
+    hideAllPaginationFooters();
+
+    if (!pushAlreadyDone) {
+        const url = new URL(window.location);
+        url.searchParams.set('view', 'search');
+        url.searchParams.set('q', searchQuery);
+        url.searchParams.set('tab', searchTab);
+        url.searchParams.delete('user');
+        url.searchParams.delete('tweet');
+        url.searchParams.delete('t');
+        window.history.replaceState({ view: 'search', q: searchQuery, tab: searchTab }, '', url);
+    }
+
+    runSearch(searchQuery, searchTab, true);
+}
+
+function runSearch(query, tab, forceReload) {
+    const q = String(query || '').trim();
+    if (!q) {
+        resetSearchState();
+        const emptyMsg = '<div class="loading">请输入关键词后搜索</div>';
+        document.getElementById('searchUsersList').innerHTML = emptyMsg;
+        document.getElementById('searchPostsList').innerHTML = emptyMsg;
+        return;
+    }
+    if (forceReload || q !== searchQuery) {
+        searchQuery = q;
+        resetSearchState();
+        document.getElementById('headerSubtitle').textContent = `「${searchQuery}」`;
+        const url = new URL(window.location);
+        url.searchParams.set('q', searchQuery);
+        window.history.replaceState({ view: 'search', q: searchQuery, tab: searchTab }, '', url);
+    }
+    if (tab === 'users') {
+        loadSearchUsers();
+    } else {
+        loadSearchTweets();
+    }
+}
+
+async function loadSearchUsers(cursor = '') {
+    if (isLoadingSearchUsers) return;
+    const q = searchQuery.trim();
+    if (!q) return;
+    isLoadingSearchUsers = true;
+    if (cursor) refreshCurrentPaginationFooter();
+    else document.getElementById('searchUsersList').innerHTML = '<div class="loading">加载中...</div>';
+
+    try {
+        let url = `${API_BASE}/api/search/users?q=${encodeURIComponent(q)}&count=20`;
+        if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+        if (result.success && result.data) {
+            const users = result.data.users || [];
+            const nextCursor = result.data.cursor || '';
+            if (cursor) {
+                searchUsers = searchUsers.concat(users);
+            } else {
+                searchUsers = users;
+            }
+            searchUsersCursor = nextCursor;
+            hasMoreSearchUsers = Boolean(nextCursor);
+            renderSearchUsersList(searchUsers, !cursor);
+            if (!cursor && users.length === 0) {
+                document.getElementById('searchUsersList').innerHTML =
+                    '<div class="loading">未找到相关用户</div>';
+            }
+        } else if (!cursor) {
+            document.getElementById('searchUsersList').innerHTML =
+                `<div class="error">${escapeHtml(formatApiError(result.error, '加载失败'))}</div>`;
+            hasMoreSearchUsers = false;
+        }
+    } catch (err) {
+        if (!cursor) {
+            document.getElementById('searchUsersList').innerHTML =
+                '<div class="error">加载失败，请稍后重试</div>';
+        }
+        hasMoreSearchUsers = false;
+    } finally {
+        isLoadingSearchUsers = false;
+        refreshCurrentPaginationFooter();
+    }
+}
+
+function renderSearchUsersList(users, replace = true) {
+    const list = document.getElementById('searchUsersList');
+    if (!users?.length) {
+        if (replace) list.innerHTML = '<div class="loading">未找到相关用户</div>';
+        return;
+    }
+    const html = users.map(renderFollowingUserItem).join('');
+    if (replace) {
+        list.innerHTML = html;
+    } else {
+        list.insertAdjacentHTML('beforeend', html);
+    }
+}
+
+async function loadSearchTweets(cursor = '') {
+    if (isLoadingSearchTweets) return;
+    const q = searchQuery.trim();
+    if (!q) return;
+    isLoadingSearchTweets = true;
+    if (cursor) refreshCurrentPaginationFooter();
+    else document.getElementById('searchPostsList').innerHTML = '<div class="loading">加载中...</div>';
+
+    try {
+        let url = `${API_BASE}/api/search/tweets?q=${encodeURIComponent(q)}&count=20`;
+        if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+        if (result.success && result.data) {
+            let tweets = withoutPromotedTweets(result.data.tweets || []);
+            tweets = tweets.filter((t) => t?.id && !loadedSearchTweetIds.has(t.id));
+            tweets.forEach((t) => loadedSearchTweetIds.add(t.id));
+            const nextCursor = result.data.cursor || '';
+            if (cursor) {
+                searchTweets = searchTweets.concat(tweets);
+            } else {
+                searchTweets = tweets;
+                loadedSearchTweetIds = new Set(searchTweets.map((t) => t.id));
+            }
+            searchTweetsCursor = nextCursor;
+            hasMoreSearchTweets = Boolean(nextCursor);
+            if (searchTweets.length === 0 && !cursor) {
+                document.getElementById('searchPostsList').innerHTML =
+                    '<div class="loading">未找到相关帖子</div>';
+            } else {
+                renderTweetsList(searchTweets, !cursor, 'searchPostsList');
+            }
+        } else if (!cursor) {
+            document.getElementById('searchPostsList').innerHTML =
+                `<div class="error">${escapeHtml(formatApiError(result.error, '加载失败'))}</div>`;
+            hasMoreSearchTweets = false;
+        }
+    } catch (err) {
+        if (!cursor) {
+            document.getElementById('searchPostsList').innerHTML =
+                '<div class="error">加载失败，请稍后重试</div>';
+        }
+        hasMoreSearchTweets = false;
+    } finally {
+        isLoadingSearchTweets = false;
+        refreshCurrentPaginationFooter();
+    }
+}
+
+function openTrendsView(pushAlreadyDone = false) {
+    hideAllMainViews();
+    trendsView.classList.remove('hidden');
+    backBtn.classList.remove('hidden');
+    headerTitle.textContent = '热门';
+    document.getElementById('headerSubtitle').textContent = '';
+    currentView = 'trends';
+    hideAllPaginationFooters();
+
+    if (!pushAlreadyDone) {
+        const url = new URL(window.location);
+        url.searchParams.set('view', 'trends');
+        url.searchParams.delete('user');
+        url.searchParams.delete('q');
+        url.searchParams.delete('tab');
+        url.searchParams.delete('tweet');
+        url.searchParams.delete('t');
+        window.history.replaceState({ view: 'trends' }, '', url);
+    }
+
+    if (trendsItems.length === 0) {
+        loadTrends();
+    }
+}
+
+async function loadTrends() {
+    if (isLoadingTrends) return;
+    isLoadingTrends = true;
+    const list = document.getElementById('trendsList');
+    list.innerHTML = '<div class="loading">加载中...</div>';
+    try {
+        const response = await fetch(`${API_BASE}/api/trends`);
+        const result = await response.json();
+        if (result.success && result.data) {
+            trendsItems = result.data.trends || [];
+            renderTrendsList(trendsItems);
+        } else {
+            list.innerHTML = `<div class="error">${escapeHtml(formatApiError(result.error, '加载失败'))}</div>`;
+        }
+    } catch (err) {
+        list.innerHTML = '<div class="error">加载失败，请稍后重试</div>';
+    } finally {
+        isLoadingTrends = false;
+    }
+}
+
+function renderTrendsList(trends) {
+    const list = document.getElementById('trendsList');
+    list.replaceChildren();
+    if (!trends?.length) {
+        const empty = document.createElement('div');
+        empty.className = 'loading';
+        empty.textContent = '暂无热门话题';
+        list.appendChild(empty);
+        return;
+    }
+    trends.forEach((t, i) => {
+        const row = document.createElement('div');
+        row.className = 'trend-item';
+        row.dataset.trendName = t.name;
+        row.setAttribute('role', 'button');
+        row.tabIndex = 0;
+
+        const rank = document.createElement('span');
+        rank.className = 'trend-rank';
+        rank.textContent = String(i + 1);
+
+        const body = document.createElement('div');
+        body.className = 'trend-body';
+
+        const name = document.createElement('div');
+        name.className = 'trend-name';
+        name.textContent = t.name || '';
+        body.appendChild(name);
+
+        if (t.tweet_count) {
+            const meta = document.createElement('div');
+            meta.className = 'trend-meta';
+            meta.textContent = t.tweet_count;
+            body.appendChild(meta);
+        }
+
+        row.append(rank, body);
+        list.appendChild(row);
+    });
 }
 
 function onTweetTextOpen(event, tweetId) {
@@ -2410,6 +2830,12 @@ window.addEventListener('popstate', (event) => {
         showFollowers(user);
     } else if (view === 'tweet' && tweetParam) {
         openTweetDetailView(tweetParam, true);
+    } else if (view === 'search') {
+        const q = params.get('q') || '';
+        const tab = params.get('tab') || 'posts';
+        openSearchView(q, tab, true);
+    } else if (view === 'trends') {
+        openTrendsView(true);
     } else if (user) {
         // Go back to profile view
         followingView.classList.add('hidden');

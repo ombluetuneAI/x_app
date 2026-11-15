@@ -1,0 +1,38 @@
+{
+  "data": {
+    "search_by_raw_query": {
+      "search_timeline": {
+        "timeline": {
+          "instructions": [
+            {
+              "type": "TimelineAddEntries",
+              "entries": [
+                {
+                  "entryId": "user-1",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "user_results": {
+                        "result": {
+                          "rest_id": "987",
+                          "__typename": "User",
+                          "legacy": {
+                            "name": "Found User",
+                            "screen_name": "founduser",
+                            "description": "Bio from search",
+                            "followers_count": 100,
+                            "profile_image_url_https": "https://pbs.twimg.com/profile_normal/u.jpg"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

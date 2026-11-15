@@ -2,7 +2,12 @@ import {
   APIEndpoints,
   Features,
   buildGraphqlParams,
+  buildSearchTimelinePostBody,
+  buildSearchTimelineVariables,
+  buildTrendsParams,
+  buildTypeaheadParams,
   buildTweetDetailVariables,
+  getSearchTimelineEndpoint,
   getTweetDetailEndpoint,
 } from './constants.js';
 import { parseTweetDetail } from './parsers.js';
@@ -12,6 +17,8 @@ import {
   parseUsersFromTimeline,
   parseTweets,
   parseMediaList,
+  parseTypeaheadUsers,
+  parseTrends,
 } from './parsers.js';
 import { userFromV1Dict } from './models.js';
 import { enrichUserMediaPage } from './userMediaEnrich.js';
@@ -198,6 +205,51 @@ export function createXApi(env) {
       await http.post(APIEndpoints.DESTROY_FRIENDSHIP, {
         form: { ...FRIENDSHIP_FORM, user_id: String(userId) },
       });
+    },
+
+    async searchUsers(query, { count = 20, cursor = '' } = {}) {
+      const trimmed = String(query || '').trim();
+      if (!trimmed) return { users: [], nextCursor: '' };
+      if (!cursor && trimmed.length <= 50) {
+        const typeahead = await http.get(
+          APIEndpoints.SEARCH_TYPEAHEAD,
+          buildTypeaheadParams(trimmed)
+        );
+        const { users } = parseTypeaheadUsers(typeahead);
+        if (users.length) {
+          return { users: users.slice(0, count), nextCursor: '' };
+        }
+      }
+      const variables = buildSearchTimelineVariables({
+        rawQuery: trimmed,
+        product: 'People',
+        count,
+        cursor,
+      });
+      const data = await http.post(getSearchTimelineEndpoint(env), {
+        json: buildSearchTimelinePostBody(variables),
+      });
+      return parseUsersFromTimeline(data);
+    },
+
+    async searchTweets(query, { count = 20, cursor = '' } = {}) {
+      const trimmed = String(query || '').trim();
+      if (!trimmed) return { tweets: [], nextCursor: '' };
+      const variables = buildSearchTimelineVariables({
+        rawQuery: trimmed,
+        product: 'Latest',
+        count,
+        cursor,
+      });
+      const data = await http.post(getSearchTimelineEndpoint(env), {
+        json: buildSearchTimelinePostBody(variables),
+      });
+      return parseTweets(data);
+    },
+
+    async getTrends() {
+      const data = await http.get(APIEndpoints.TRENDS, buildTrendsParams());
+      return parseTrends(data);
     },
   };
 }

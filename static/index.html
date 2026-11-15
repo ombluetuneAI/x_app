@@ -28,6 +28,13 @@
 
         <!-- Home View -->
         <div id="homeView" class="view">
+            <div class="home-toolbar">
+                <form id="homeSearchForm" class="home-search-form" onsubmit="return submitHomeSearch(event)">
+                    <input type="search" id="homeSearchInput" class="home-search-input" placeholder="搜索用户或帖子" autocomplete="off" enterkeyhint="search">
+                    <button type="submit" class="home-search-btn">搜索</button>
+                </form>
+                <button type="button" class="home-trends-btn" onclick="navigateToTrends()">热门</button>
+            </div>
             <div class="home-tabs" id="homeTabs">
                 <button class="home-tab active-home-tab" data-feed="foryou">推荐</button>
                 <button class="home-tab" data-feed="following">关注</button>
@@ -149,6 +156,35 @@
             <div id="tweetDetailReplies" class="tweet-detail-replies"></div>
             <div id="loadMoreTweetReplies" class="scroll-sentinel"></div>
             <div id="tweetDetailPaginationFooter" class="pagination-footer hidden"></div>
+        </div>
+
+        <!-- Search View -->
+        <div id="searchView" class="view hidden">
+            <form id="searchViewForm" class="search-form" onsubmit="return submitSearchView(event)">
+                <input type="search" id="searchViewInput" class="search-input" placeholder="输入关键词" autocomplete="off" enterkeyhint="search">
+                <button type="submit" class="search-submit-btn">搜索</button>
+            </form>
+            <div class="search-tabs" id="searchTabs">
+                <button type="button" class="search-tab active-search-tab" data-search-tab="users">用户</button>
+                <button type="button" class="search-tab" data-search-tab="posts">帖子</button>
+            </div>
+            <div id="searchUsersPanel" class="search-panel">
+                <div id="searchUsersList" class="following-list"></div>
+                <div id="searchUsersPaginationFooter" class="pagination-footer hidden"></div>
+            </div>
+            <div id="searchPostsPanel" class="search-panel hidden">
+                <div id="searchPostsList" class="tweets-list"></div>
+                <div id="loadMoreSearchPosts" class="scroll-sentinel"></div>
+                <div id="searchPaginationFooter" class="pagination-footer hidden"></div>
+            </div>
+        </div>
+
+        <!-- Trends View -->
+        <div id="trendsView" class="view hidden">
+            <p class="trends-hint">当前 X 平台热门话题（Trends，非「为你推荐」信息流）。榜单因账号地区设置而异。</p>
+            <div id="trendsList" class="trends-list">
+                <div class="loading">加载中...</div>
+            </div>
         </div>
 
         <!-- Followers View -->

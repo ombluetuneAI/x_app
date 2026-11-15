@@ -1,5 +1,6 @@
 import { APIEndpoints, getBearerToken } from './constants.js';
 import { humanizeGraphqlErrors } from './graphqlErrors.js';
+import { friendlyXHttpError } from './httpErrors.js';
 
 const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
@@ -77,8 +78,7 @@ export function createHttpClient(env) {
     }
 
     if (!resp.ok) {
-      const friendly =
-        data?.errors?.length ? humanizeGraphqlErrors(data) : text?.slice(0, 500) || 'Unknown error';
+      const friendly = friendlyXHttpError(resp.status, path, text, data);
       throw new XHttpError(resp.status, friendly, data);
     }
     if (data?.errors?.length) {
