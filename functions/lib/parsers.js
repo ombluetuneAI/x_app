@@ -1,6 +1,6 @@
 import { filterTimelineEntries } from './adFilter.js';
 import { isPromotedTimelineEntry, isPromotedItemContent } from './adFilter.js';
-import { userFromDict, mediaFromDict } from './models.js';
+import { userFromDict, userFromV1Dict, mediaFromDict } from './models.js';
 import { tweetFromDict } from './models.js';
 
 export function safeGet(data, ...keys) {
@@ -15,6 +15,7 @@ export function safeGet(data, ...keys) {
 
 export function getInstructions(data) {
   const paths = [
+    ['data', 'search_by_raw_query', 'search_timeline', 'timeline', 'instructions'],
     ['data', 'user', 'result', 'timeline_v2', 'timeline', 'instructions'],
     ['data', 'user', 'result', 'timeline', 'timeline', 'instructions'],
     ['data', 'list', 'members_timeline', 'timeline', 'instructions'],
@@ -337,6 +338,68 @@ export function summarizeUserMediaResponse(data) {
     retweetFallbackHits,
     typenameCounts,
   };
+}
+
+/**
+ * Parse v1.1 typeahead users (`search/typeahead.json`).
+ */
+export function parseTypeaheadUsers(data) {
+  const users = [];
+  for (const row of data?.users || []) {
+    const user = userFromV1Dict(row);
+    if (user) users.push(user);
+  }
+  return { users };
+}
+
+/**
+ * Parse Explore Trends from `guide.json`.
+ * @returns {{ trends: { name: string, tweet_count?: string, url?: string }[] }}
+ */
+export function parseTrends(data) {
+  const trends = [];
+  const seen = new Set();
+
+  function pushTrend(name, meta = {}) {
+    const n = (name || '').trim();
+    if (!n || seen.has(n.toLowerCase())) return;
+    seen.add(n.toLowerCase());
+    trends.push({
+      name: n,
+      tweet_count: meta.tweet_count || meta.tweetCount || '',
+      url: meta.url || '',
+    });
+  }
+
+  const instructions = data?.timeline?.instructions || [];
+  for (const inst of instructions) {
+    const entries = inst.addEntries?.entries || [];
+    for (const entry of entries) {
+      const module = entry.content?.timelineModule;
+      if (module?.items) {
+        for (const row of module.items) {
+          const item = row.item || row;
+          const transparent =
+            item?.clientEventInfo?.details?.guideDetails?.transparentGuideDetails;
+          const trendMeta = transparent?.trendMetadata;
+          if (trendMeta?.trendName) {
+            pushTrend(trendMeta.trendName, {
+              tweet_count: trendMeta.tweetCount,
+              url: transparent?.url?.url,
+            });
+          }
+        }
+      }
+      const itemContent = entry.content?.itemContent;
+      if (itemContent?.itemType === 'TimelineTrend') {
+        pushTrend(itemContent.name || itemContent.trendMetadata?.trendName, {
+          tweet_count: itemContent.trendMetadata?.tweetCount,
+          url: itemContent.trend_url?.url,
+        });
+      }
+    }
+  }
+  return { trends };
 }
 
 export function parseMediaList(data) {

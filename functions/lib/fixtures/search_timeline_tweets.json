@@ -1,0 +1,61 @@
+{
+  "data": {
+    "search_by_raw_query": {
+      "search_timeline": {
+        "timeline": {
+          "instructions": [
+            {
+              "type": "TimelineAddEntries",
+              "entries": [
+                {
+                  "entryId": "tweet-search-1",
+                  "content": {
+                    "entryType": "TimelineTimelineItem",
+                    "itemContent": {
+                      "tweet_results": {
+                        "result": {
+                          "rest_id": "555",
+                          "legacy": {
+                            "full_text": "Search hit tweet",
+                            "created_at": "Mon Jan 01 00:00:00 +0000 2020",
+                            "favorite_count": 2,
+                            "retweet_count": 1,
+                            "reply_count": 0,
+                            "quote_count": 0
+                          },
+                          "core": {
+                            "user_results": {
+                              "result": {
+                                "rest_id": "123",
+                                "core": {
+                                  "name": "Searcher",
+                                  "screen_name": "searcher"
+                                },
+                                "legacy": {
+                                  "profile_image_url_https": "https://pbs.twimg.com/profile_normal/s.jpg"
+                                }
+                              }
+                            }
+                          },
+                          "views": { "count": "5" }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "entryId": "cursor-bottom",
+                  "content": {
+                    "entryType": "TimelineTimelineCursor",
+                    "cursorType": "Bottom",
+                    "value": "search-cursor-2"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

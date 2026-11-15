@@ -18,6 +18,9 @@ export const APIEndpoints = {
   TWEET_DETAIL_QUERY_ID_DEFAULT: '3BlMtudy4N-d78ch7zTLZQ',
   CREATE_FRIENDSHIP: '/i/api/1.1/friendships/create.json',
   DESTROY_FRIENDSHIP: '/i/api/1.1/friendships/destroy.json',
+  SEARCH_TIMELINE: '/i/api/graphql/nKAncKPF1fV1xltvF3UUlw/SearchTimeline',
+  SEARCH_TYPEAHEAD: '/i/api/1.1/search/typeahead.json',
+  TRENDS: '/i/api/2/guide.json',
   BASE_URL: 'https://x.com',
 };
 
@@ -226,7 +229,41 @@ export const Features = {
     longform_notetweets_inline_media_enabled: true,
     responsive_web_enhance_cards_enabled: false,
   }),
+  SEARCH_TIMELINE: compact({
+    rweb_video_screen_enabled: false,
+    profile_label_improvements_pcf_label_in_post_enabled: true,
+    rweb_tipjar_consumption_enabled: true,
+    verified_phone_label_enabled: false,
+    creator_subscriptions_tweet_preview_api_enabled: true,
+    responsive_web_graphql_timeline_navigation_enabled: true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+    communities_web_enable_tweet_community_results_fetch: true,
+    c9s_tweet_anatomy_moderator_badge_enabled: true,
+    responsive_web_grok_analyze_button_fetch_trends_enabled: false,
+    responsive_web_grok_analyze_post_followups_enabled: true,
+    responsive_web_jetfuel_frame: true,
+    responsive_web_grok_share_attachment_enabled: true,
+    articles_preview_enabled: true,
+    responsive_web_edit_tweet_api_enabled: true,
+    graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+    view_counts_everywhere_api_enabled: true,
+    longform_notetweets_consumption_enabled: true,
+    responsive_web_twitter_article_tweet_consumption_enabled: true,
+    tweet_awards_web_tipping_enabled: false,
+    responsive_web_grok_show_grok_translated_post: false,
+    responsive_web_grok_analysis_button_from_backend: true,
+    creator_subscriptions_quote_tweet_preview_enabled: false,
+    freedom_of_speech_not_reach_fetch_enabled: true,
+    standardized_nudges_misinfo: true,
+    tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+    longform_notetweets_rich_text_read_enabled: true,
+    longform_notetweets_inline_media_enabled: true,
+    responsive_web_grok_image_annotation_enabled: true,
+    responsive_web_enhance_cards_enabled: false,
+    responsive_web_graphql_exclude_directive_enabled: true,
+  }),
   FIELD_TOGGLES_WITH_ARTICLE: '{"withArticlePlainText":false}',
+  FIELD_TOGGLES_SEARCH: '{"withArticleRichContentState":true,"withArticlePlainText":false}',
   FIELD_TOGGLES_USER_LABELS: '{"withAuxiliaryUserLabels":false}',
 };
 
@@ -262,4 +299,54 @@ export function buildGraphqlParams(variables, features, fieldToggles) {
     params.set('fieldToggles', fieldToggles);
   }
   return params;
+}
+
+/**
+ * @param {{ rawQuery: string, product: 'People' | 'Latest' | 'Top', count?: number, cursor?: string }} opts
+ */
+export function buildSearchTimelineVariables({ rawQuery, product, count = 20, cursor = '' }) {
+  const variables = {
+    rawQuery: String(rawQuery),
+    count,
+    querySource: 'typed_query',
+    product,
+  };
+  if (cursor) variables.cursor = cursor;
+  return variables;
+}
+
+/** Query params for `GET /i/api/2/guide.json` (Explore → Trends). */
+export function buildTrendsParams() {
+  return {
+    count: '100',
+    candidate_source: 'trends',
+    include_page_configuration: 'false',
+    entity_tokens: 'false',
+    requestContext: 'launch',
+    skip_status: '1',
+    cards_platform: 'Web-12',
+    tweet_mode: 'extended',
+  };
+}
+
+/** Query params for user typeahead (`search/typeahead.json`). */
+export function buildTypeaheadParams(query) {
+  return {
+    include_profile_interstitial_type: '1',
+    include_blocking: '1',
+    include_blocked_by: '1',
+    include_followed_by: '1',
+    include_want_retweets: '1',
+    include_mute_edge: '1',
+    include_can_dm: '1',
+    include_can_media_tag: '1',
+    include_ext_has_nft_avatar: '1',
+    include_ext_is_blue_verified: '1',
+    include_ext_verified_type: '1',
+    include_ext_profile_image_shape: '1',
+    include_entities: '1',
+    q: String(query),
+    src: 'search_box',
+    result_type: 'users',
+  };
 }
